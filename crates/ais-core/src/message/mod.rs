@@ -5,9 +5,9 @@ pub mod common;
 mod types;
 
 pub use types::{
-    AidToNavigationReport, PositionReportClassA, PositionReportClassB,
-    PositionReportClassBExtended, StaticDataReport, StaticDataReportPartA, StaticDataReportPartB,
-    StaticVoyageData,
+    AidToNavigationReport, BaseStationReport, LongRangeBroadcast, PositionReportClassA,
+    PositionReportClassB, PositionReportClassBExtended, SarAircraftPositionReport,
+    StaticDataReport, StaticDataReportPartA, StaticDataReportPartB, StaticVoyageData,
 };
 
 use crate::bits::{BitReader, BitWriter};
@@ -32,6 +32,12 @@ pub enum AisMessage {
     AidToNavigationReport(AidToNavigationReport),
     /// Message type 24: Static Data Report (Part A or Part B).
     StaticDataReport(StaticDataReport),
+    /// Message types 4 and 11: Base Station Report / UTC and Date Response.
+    BaseStationReport(BaseStationReport),
+    /// Message type 9: Standard SAR Aircraft Position Report.
+    SarAircraftPositionReport(SarAircraftPositionReport),
+    /// Message type 27: Long Range AIS Broadcast message.
+    LongRangeBroadcast(LongRangeBroadcast),
 }
 
 impl AisMessage {
@@ -58,6 +64,14 @@ impl AisMessage {
                 r,
             )?)),
             24 => Ok(Self::StaticDataReport(StaticDataReport::decode(r)?)),
+            4 | 11 => Ok(Self::BaseStationReport(BaseStationReport::decode(
+                message_type,
+                r,
+            )?)),
+            9 => Ok(Self::SarAircraftPositionReport(
+                SarAircraftPositionReport::decode(r)?,
+            )),
+            27 => Ok(Self::LongRangeBroadcast(LongRangeBroadcast::decode(r)?)),
             other => Err(MessageError::UnknownMessageType(other)),
         }
     }
@@ -72,6 +86,9 @@ impl AisMessage {
             Self::PositionReportClassBExtended(_) => 19,
             Self::AidToNavigationReport(_) => 21,
             Self::StaticDataReport(_) => 24,
+            Self::BaseStationReport(m) => m.message_type,
+            Self::SarAircraftPositionReport(_) => 9,
+            Self::LongRangeBroadcast(_) => 27,
         }
     }
 
@@ -87,6 +104,9 @@ impl AisMessage {
             Self::PositionReportClassBExtended(m) => m.encode(w),
             Self::AidToNavigationReport(m) => m.encode(w),
             Self::StaticDataReport(m) => m.encode(w),
+            Self::BaseStationReport(m) => m.encode(w),
+            Self::SarAircraftPositionReport(m) => m.encode(w),
+            Self::LongRangeBroadcast(m) => m.encode(w),
         }
     }
 }
