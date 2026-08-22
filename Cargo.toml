@@ -7,7 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.98.0"
 license = "MIT"
-repository = "https://github.com/jsondevers/aivdm"
+repository = "https://github.com/hz2/aivdm"
+homepage = "https://github.com/hz2/aivdm"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }

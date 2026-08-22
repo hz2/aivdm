@@ -1,11 +1,16 @@
 [package]
 name = "aivdm-ffi"
-description = "C FFI bindings for the aivdm AIS decoder"
+description = "C FFI bindings for the aivdm AIS (ITU-R M.1371) decoder"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aivdm-ffi"
+readme = "../../README.md"
+keywords = ["ais", "ffi", "nmea", "c", "aivdm"]
+categories = ["external-ffi-bindings", "parser-implementations"]
 
 [lints]
 workspace = true
@@ -15,7 +20,7 @@ name = "aivdm_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-aivdm = { path = "../aivdm" }
+aivdm = { path = "../aivdm", version = "0.1.0" }
 
 # Metadata consumed by `cargo capi` (https://github.com/lu-zero/cargo-c) for
 # consumers who want a polished, pkg-config-discoverable C library (headers

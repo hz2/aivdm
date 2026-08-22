@@ -28,11 +28,13 @@ pub struct LongRangeBroadcast {
     pub raim: bool,
     /// Navigational status.
     pub navigation_status: NavigationStatus,
-    /// Longitude, in 1/10-minute units (28-bit precision reduced to 18 bits);
-    /// see [`LONGITUDE_NOT_AVAILABLE_RAW`] for the "not available" sentinel.
+    /// Longitude, in 1/10-minute units (28-bit precision reduced to 18 bits).
+    /// Use [`LongRangeBroadcast::longitude_degrees`] for a decoded, "not
+    /// available"-aware value.
     pub longitude_raw: i32,
-    /// Latitude, in 1/10-minute units (27-bit precision reduced to 17 bits);
-    /// see [`LATITUDE_NOT_AVAILABLE_RAW`] for the "not available" sentinel.
+    /// Latitude, in 1/10-minute units (27-bit precision reduced to 17 bits).
+    /// Use [`LongRangeBroadcast::latitude_degrees`] for a decoded, "not
+    /// available"-aware value.
     pub latitude_raw: i32,
     /// Speed over ground, in whole knots (0..=62), or 63 if not available.
     pub sog_knots: u8,

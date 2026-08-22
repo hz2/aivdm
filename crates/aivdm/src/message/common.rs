@@ -8,7 +8,7 @@ use crate::error::BitError;
 ///
 /// This crate does not attempt to decode every IMO/regional-registered
 /// application message; callers who need to interpret the payload can read
-/// [`BinaryPayload::bits`] themselves against the relevant application
+/// [`BinaryPayload::bytes`] themselves against the relevant application
 /// specification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BinaryPayload<const N: usize> {

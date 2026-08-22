@@ -115,6 +115,16 @@
 
           fmt = craneLib.cargoFmt { inherit src; };
 
+          docs = craneLib.mkCargoDerivation (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              pnameSuffix = "-docs";
+              buildPhaseCargoCommand = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --all-features";
+              installPhaseCommand = "mkdir -p $out";
+            }
+          );
+
           no-std-verify = craneLib.mkCargoDerivation (
             commonArgs
             // {

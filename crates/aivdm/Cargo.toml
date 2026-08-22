@@ -6,6 +6,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/aivdm"
+readme = "../../README.md"
+keywords = ["ais", "nmea", "no-std", "maritime", "aivdm"]
+categories = ["parser-implementations", "no-std", "embedded", "encoding"]
 
 [lints]
 workspace = true

@@ -140,7 +140,7 @@ impl From<BitError> for MessageError {
 }
 
 /// Top-level error type composing every layer, for `?`-based error propagation
-/// from [`crate::decode_line`](crate::decode_line) and friends.
+/// from [`crate::decode_line`] and friends.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AisError {
