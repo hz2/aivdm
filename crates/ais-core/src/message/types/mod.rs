@@ -1,12 +1,18 @@
 //! One module per ITU-R M.1371 message type (or tightly related group).
 
 mod aid_to_navigation;
+mod assignment_command;
 mod base_station;
 mod binary_ack;
 mod binary_addressed;
 mod binary_broadcast;
 mod binary_multi_slot;
 mod binary_single_slot;
+mod channel_mgmt;
+mod data_link_mgmt;
+mod dgnss_broadcast;
+mod group_assignment;
+mod interrogation;
 mod long_range;
 mod position_report_a;
 mod position_report_b;
@@ -16,14 +22,21 @@ mod safety_broadcast;
 mod sar_aircraft;
 mod static_data_report;
 mod static_voyage;
+mod utc_inquiry;
 
 pub use aid_to_navigation::AidToNavigationReport;
+pub use assignment_command::{Assignment, AssignmentModeCommand};
 pub use base_station::BaseStationReport;
 pub use binary_ack::{Ack, Acknowledge};
 pub use binary_addressed::BinaryAddressedMessage;
 pub use binary_broadcast::BinaryBroadcastMessage;
 pub use binary_multi_slot::MultiSlotBinaryMessage;
 pub use binary_single_slot::SingleSlotBinaryMessage;
+pub use channel_mgmt::{ChannelManagement, ChannelManagementTarget};
+pub use data_link_mgmt::{DataLinkManagement, SlotReservation};
+pub use dgnss_broadcast::DgnssBroadcastMessage;
+pub use group_assignment::GroupAssignmentCommand;
+pub use interrogation::{Interrogation, MessageRequest, SecondStation};
 pub use long_range::LongRangeBroadcast;
 pub use position_report_a::PositionReportClassA;
 pub use position_report_b::PositionReportClassB;
@@ -33,3 +46,4 @@ pub use safety_broadcast::SafetyRelatedBroadcast;
 pub use sar_aircraft::SarAircraftPositionReport;
 pub use static_data_report::{StaticDataReport, StaticDataReportPartA, StaticDataReportPartB};
 pub use static_voyage::StaticVoyageData;
+pub use utc_inquiry::UtcDateInquiry;

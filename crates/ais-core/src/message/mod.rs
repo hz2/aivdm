@@ -5,11 +5,14 @@ pub mod common;
 mod types;
 
 pub use types::{
-    Ack, Acknowledge, AidToNavigationReport, BaseStationReport, BinaryAddressedMessage,
-    BinaryBroadcastMessage, LongRangeBroadcast, MultiSlotBinaryMessage, PositionReportClassA,
+    Ack, Acknowledge, AidToNavigationReport, Assignment, AssignmentModeCommand, BaseStationReport,
+    BinaryAddressedMessage, BinaryBroadcastMessage, ChannelManagement, ChannelManagementTarget,
+    DataLinkManagement, DgnssBroadcastMessage, GroupAssignmentCommand, Interrogation,
+    LongRangeBroadcast, MessageRequest, MultiSlotBinaryMessage, PositionReportClassA,
     PositionReportClassB, PositionReportClassBExtended, SafetyRelatedAddressed,
-    SafetyRelatedBroadcast, SarAircraftPositionReport, SingleSlotBinaryMessage, StaticDataReport,
-    StaticDataReportPartA, StaticDataReportPartB, StaticVoyageData,
+    SafetyRelatedBroadcast, SarAircraftPositionReport, SecondStation, SingleSlotBinaryMessage,
+    SlotReservation, StaticDataReport, StaticDataReportPartA, StaticDataReportPartB,
+    StaticVoyageData, UtcDateInquiry,
 };
 
 use crate::bits::{BitReader, BitWriter};
@@ -54,6 +57,20 @@ pub enum AisMessage {
     SingleSlotBinaryMessage(SingleSlotBinaryMessage),
     /// Message type 26: Multiple Slot Binary Message.
     MultiSlotBinaryMessage(MultiSlotBinaryMessage),
+    /// Message type 10: UTC and Date Inquiry.
+    UtcDateInquiry(UtcDateInquiry),
+    /// Message type 15: Interrogation.
+    Interrogation(Interrogation),
+    /// Message type 16: Assignment Mode Command.
+    AssignmentModeCommand(AssignmentModeCommand),
+    /// Message type 17: DGNSS Broadcast Binary Message.
+    DgnssBroadcastMessage(DgnssBroadcastMessage),
+    /// Message type 20: Data Link Management Message.
+    DataLinkManagement(DataLinkManagement),
+    /// Message type 22: Channel Management.
+    ChannelManagement(ChannelManagement),
+    /// Message type 23: Group Assignment Command.
+    GroupAssignmentCommand(GroupAssignmentCommand),
 }
 
 impl AisMessage {
@@ -107,6 +124,19 @@ impl AisMessage {
             26 => Ok(Self::MultiSlotBinaryMessage(
                 MultiSlotBinaryMessage::decode(r)?,
             )),
+            10 => Ok(Self::UtcDateInquiry(UtcDateInquiry::decode(r)?)),
+            15 => Ok(Self::Interrogation(Interrogation::decode(r)?)),
+            16 => Ok(Self::AssignmentModeCommand(AssignmentModeCommand::decode(
+                r,
+            )?)),
+            17 => Ok(Self::DgnssBroadcastMessage(DgnssBroadcastMessage::decode(
+                r,
+            )?)),
+            20 => Ok(Self::DataLinkManagement(DataLinkManagement::decode(r)?)),
+            22 => Ok(Self::ChannelManagement(ChannelManagement::decode(r)?)),
+            23 => Ok(Self::GroupAssignmentCommand(
+                GroupAssignmentCommand::decode(r)?,
+            )),
             other => Err(MessageError::UnknownMessageType(other)),
         }
     }
@@ -131,6 +161,13 @@ impl AisMessage {
             Self::SafetyRelatedBroadcast(_) => 14,
             Self::SingleSlotBinaryMessage(_) => 25,
             Self::MultiSlotBinaryMessage(_) => 26,
+            Self::UtcDateInquiry(_) => 10,
+            Self::Interrogation(_) => 15,
+            Self::AssignmentModeCommand(_) => 16,
+            Self::DgnssBroadcastMessage(_) => 17,
+            Self::DataLinkManagement(_) => 20,
+            Self::ChannelManagement(_) => 22,
+            Self::GroupAssignmentCommand(_) => 23,
         }
     }
 
@@ -156,6 +193,13 @@ impl AisMessage {
             Self::SafetyRelatedBroadcast(m) => m.encode(w),
             Self::SingleSlotBinaryMessage(m) => m.encode(w),
             Self::MultiSlotBinaryMessage(m) => m.encode(w),
+            Self::UtcDateInquiry(m) => m.encode(w),
+            Self::Interrogation(m) => m.encode(w),
+            Self::AssignmentModeCommand(m) => m.encode(w),
+            Self::DgnssBroadcastMessage(m) => m.encode(w),
+            Self::DataLinkManagement(m) => m.encode(w),
+            Self::ChannelManagement(m) => m.encode(w),
+            Self::GroupAssignmentCommand(m) => m.encode(w),
         }
     }
 }
