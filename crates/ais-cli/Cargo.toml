@@ -1,0 +1,16 @@
+[package]
+name = "ais-cli"
+description = "Command-line demo/decoder for ais-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ais-core = { path = "../ais-core" }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"

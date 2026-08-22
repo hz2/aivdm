@@ -1,0 +1,23 @@
+[package]
+name = "ais-core"
+description = "no_std, no_alloc parser and encoder for AIS (ITU-R M.1371) messages over NMEA 0183"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+heapless = ["dep:heapless"]
+defmt = ["dep:defmt"]
+
+[dependencies]
+heapless = { version = "0.8", optional = true, default-features = false }
+defmt = { version = "0.3", optional = true }
+
+[dev-dependencies]
+proptest = "1"
