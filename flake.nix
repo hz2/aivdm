@@ -1,5 +1,5 @@
 {
-  description = "no_std AIS (ITU-R M.1371) message parser and encoder";
+  description = "no_std AIS (ITU-R M.1371) message parser and encoder, with a C FFI";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -38,44 +38,70 @@
         };
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-        src = craneLib.cleanCargoSource ./.;
+
+        # cleanCargoSource only keeps Rust/Cargo-relevant files; the FFI
+        # crate also needs its checked-in header, cbindgen config, and C
+        # smoke test present for the header-diff and ffi-smoke-test checks.
+        src = pkgs.lib.fileset.toSource {
+          root = ./.;
+          fileset = pkgs.lib.fileset.unions [
+            (craneLib.fileset.commonCargoSources ./.)
+            ./crates/aivdm-ffi/include
+            ./crates/aivdm-ffi/cbindgen.toml
+            ./crates/aivdm-ffi/tests
+          ];
+        };
 
         commonArgs = {
           inherit src;
           strictDeps = true;
-          pname = "ais-dev";
+          pname = "aivdm-workspace";
           version = "0.1.0";
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        ais-cli = craneLib.buildPackage (
+        aivdm-cli = craneLib.buildPackage (
           commonArgs
           // {
             inherit cargoArtifacts;
-            pname = "ais-cli";
-            cargoExtraArgs = "-p ais-cli";
+            pname = "aivdm-cli";
+            cargoExtraArgs = "-p aivdm-cli";
           }
         );
 
-        ais-core = craneLib.buildPackage (
+        aivdm = craneLib.buildPackage (
           commonArgs
           // {
             inherit cargoArtifacts;
-            pname = "ais-core";
-            cargoExtraArgs = "-p ais-core";
+            pname = "aivdm";
+            cargoExtraArgs = "-p aivdm";
             doCheck = false;
+          }
+        );
+
+        aivdm-ffi = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+            pname = "aivdm-ffi";
+            cargoExtraArgs = "-p aivdm-ffi";
+            doCheck = false;
+            postInstall = ''
+              mkdir -p $out/include
+              cp crates/aivdm-ffi/include/aivdm.h $out/include/
+            '';
           }
         );
       in
       {
         packages = {
-          default = ais-cli;
-          inherit ais-cli ais-core;
+          default = aivdm-cli;
+          inherit aivdm-cli aivdm aivdm-ffi;
         };
 
         checks = {
-          inherit ais-cli ais-core;
+          inherit aivdm-cli aivdm aivdm-ffi;
 
           tests = craneLib.cargoTest (commonArgs // { inherit cargoArtifacts; });
 
@@ -94,19 +120,63 @@
             // {
               inherit cargoArtifacts;
               pnameSuffix = "-nostd-verify";
-              buildPhaseCargoCommand = "cargo build -p ais-core --no-default-features --target thumbv7em-none-eabi";
+              buildPhaseCargoCommand = "cargo build -p aivdm --no-default-features --target thumbv7em-none-eabi";
+              installPhaseCommand = "mkdir -p $out";
+            }
+          );
+
+          # Regenerates the C header with the pinned cbindgen version and
+          # fails if it differs from the checked-in
+          # crates/aivdm-ffi/include/aivdm.h, catching drift between the
+          # Rust FFI surface and the committed header (mirrors rustls-ffi's
+          # CI header-diff check).
+          header-diff = craneLib.mkCargoDerivation (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              pnameSuffix = "-header-diff";
+              nativeBuildInputs = [ pkgs.rust-cbindgen ];
+              buildPhaseCargoCommand = ''
+                cbindgen --config crates/aivdm-ffi/cbindgen.toml --crate aivdm-ffi --output generated-aivdm.h
+                diff -u crates/aivdm-ffi/include/aivdm.h generated-aivdm.h
+              '';
+              installPhaseCommand = "mkdir -p $out";
+            }
+          );
+
+          # Builds the FFI staticlib, compiles crates/aivdm-ffi/tests/smoke.c
+          # against the committed header and links it statically, then runs
+          # it. Proves the header and the compiled library agree with each
+          # other (ABI-compatible) and that decoding actually produces
+          # correct field values from C, not just that it links.
+          ffi-smoke-test = craneLib.mkCargoDerivation (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              pnameSuffix = "-ffi-smoke-test";
+              buildPhaseCargoCommand = ''
+                cargo build -p aivdm-ffi --release
+                $CC -Wall -Wextra -Werror -o ffi_smoke \
+                  crates/aivdm-ffi/tests/smoke.c \
+                  -I crates/aivdm-ffi/include \
+                  target/release/libaivdm_ffi.a \
+                  -lpthread -ldl -lm
+                ./ffi_smoke
+              '';
               installPhaseCommand = "mkdir -p $out";
             }
           );
         };
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ ais-cli ];
+          inputsFrom = [ aivdm-cli ];
           packages = [
             rustToolchain
             pkgs.rust-analyzer
             pkgs.cargo-outdated
             pkgs.cargo-machete
+            pkgs.rust-cbindgen
+            pkgs.cargo-c
           ];
         };
       }

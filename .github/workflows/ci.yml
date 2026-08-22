@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flake-check:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Enable Determinate Nix magic cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      # Runs every check defined in flake.nix: fmt, clippy (workspace,
+      # pedantic), the full test suite (including the real-world AIS
+      # corpus), the no_std/no_alloc cross-compile verification, and the
+      # FFI header-diff + C smoke test. Local `nix flake check` runs the
+      # identical set, so there is one source of truth for what "passing CI"
+      # means.
+      - name: nix flake check
+        run: nix flake check -L

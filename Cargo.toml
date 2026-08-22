@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/ais-core", "crates/ais-cli"]
+members = ["crates/aivdm", "crates/aivdm-cli", "crates/aivdm-ffi"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.98.0"
 license = "MIT"
-repository = "https://github.com/jsondevers/ais-dev"
+repository = "https://github.com/jsondevers/aivdm"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }

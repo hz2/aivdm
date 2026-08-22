@@ -1,16 +1,20 @@
 [package]
-name = "ais-cli"
-description = "Command-line demo/decoder for ais-core"
+name = "aivdm-cli"
+description = "Command-line demo/decoder for aivdm"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "aivdm"
+path = "src/main.rs"
+
 [lints]
 workspace = true
 
 [dependencies]
-ais-core = { path = "../ais-core" }
+aivdm = { path = "../aivdm" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"

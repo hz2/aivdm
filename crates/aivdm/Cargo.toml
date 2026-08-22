@@ -1,5 +1,5 @@
 [package]
-name = "ais-core"
+name = "aivdm"
 description = "no_std, no_alloc parser and encoder for AIS (ITU-R M.1371) messages over NMEA 0183"
 version.workspace = true
 edition.workspace = true

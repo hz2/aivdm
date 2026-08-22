@@ -1,6 +1,6 @@
 //! Human-readable printing of decoded AIS messages.
 
-use ais_core::AisMessage;
+use aivdm::AisMessage;
 
 pub fn print_message(message: &AisMessage) {
     match message {

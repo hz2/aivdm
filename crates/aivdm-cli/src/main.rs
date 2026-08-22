@@ -1,4 +1,4 @@
-//! Command-line demo decoder for `ais-core`.
+//! Command-line demo decoder for `aivdm`.
 //!
 //! Reads `!AIVDM`/`!AIVDO` sentences from a file (or stdin) and prints the
 //! decoded message for each single-fragment line.
@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 
-use ais_core::{AisError, decode_line};
+use aivdm::{AisError, decode_line};
 use anyhow::{Context, Result};
 use clap::Parser;
 

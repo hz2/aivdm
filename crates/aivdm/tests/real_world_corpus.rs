@@ -7,9 +7,9 @@
 //! These sentences also include the trailing `,<station>,<unix_ts>` metadata
 //! that real-world aggregators (e.g. raishub) append after the checksum.
 
-use ais_core::message::common::{EpfdType, NavigationStatus, Timestamp};
-use ais_core::nmea::{FragmentAssembler, Sentence};
-use ais_core::{AisMessage, decode_line, decode_payload};
+use aivdm::message::common::{EpfdType, NavigationStatus, Timestamp};
+use aivdm::nmea::{FragmentAssembler, Sentence};
+use aivdm::{AisMessage, decode_line, decode_payload};
 
 fn decode(line: &str) -> AisMessage {
     decode_line(line).unwrap_or_else(|e| panic!("failed to decode {line:?}: {e}"))
