@@ -86,7 +86,9 @@ mod tests {
     fn decodes_a_real_position_report() {
         let msg = decode_line("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").unwrap();
         assert_eq!(msg.message_type(), 1);
-        let AisMessage::PositionReportClassA(p) = msg;
+        let AisMessage::PositionReportClassA(p) = msg else {
+            panic!("expected PositionReportClassA");
+        };
         assert_eq!(p.mmsi.raw(), 366_053_209);
         assert_eq!(
             p.navigation_status,

@@ -396,6 +396,68 @@ impl Timestamp {
     }
 }
 
+/// Electronic Position Fixing Device type (4-bit field), ITU-R M.1371 Table 47.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum EpfdType {
+    /// Not specified / undefined.
+    Undefined,
+    /// GPS.
+    Gps,
+    /// GLONASS.
+    Glonass,
+    /// Combined GPS/GLONASS.
+    GpsGlonass,
+    /// Loran-C.
+    LoranC,
+    /// Chayka.
+    Chayka,
+    /// Integrated navigation system.
+    IntegratedNavigationSystem,
+    /// Surveyed (fixed position, e.g. a base station).
+    Surveyed,
+    /// Galileo.
+    Galileo,
+    /// Reserved/unused value.
+    Reserved(u8),
+}
+
+impl EpfdType {
+    /// Decodes a raw 4-bit EPFD type value.
+    #[must_use]
+    pub const fn from_raw(v: u8) -> Self {
+        match v {
+            1 => Self::Gps,
+            2 => Self::Glonass,
+            3 => Self::GpsGlonass,
+            4 => Self::LoranC,
+            5 => Self::Chayka,
+            6 => Self::IntegratedNavigationSystem,
+            7 => Self::Surveyed,
+            8 => Self::Galileo,
+            0 => Self::Undefined,
+            other => Self::Reserved(other),
+        }
+    }
+
+    /// Encodes back to the raw 4-bit EPFD type value.
+    #[must_use]
+    pub const fn to_raw(self) -> u8 {
+        match self {
+            Self::Undefined => 0,
+            Self::Gps => 1,
+            Self::Glonass => 2,
+            Self::GpsGlonass => 3,
+            Self::LoranC => 4,
+            Self::Chayka => 5,
+            Self::IntegratedNavigationSystem => 6,
+            Self::Surveyed => 7,
+            Self::Galileo => 8,
+            Self::Reserved(v) => v,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
@@ -426,6 +488,13 @@ mod tests {
     fn timestamp_roundtrips() {
         for v in 0u8..64 {
             assert_eq!(Timestamp::from_raw(v).to_raw(), v);
+        }
+    }
+
+    #[test]
+    fn epfd_type_roundtrips() {
+        for v in 0u8..16 {
+            assert_eq!(EpfdType::from_raw(v).to_raw(), v);
         }
     }
 

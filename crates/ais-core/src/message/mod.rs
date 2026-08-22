@@ -4,7 +4,11 @@
 pub mod common;
 mod types;
 
-pub use types::PositionReportClassA;
+pub use types::{
+    AidToNavigationReport, PositionReportClassA, PositionReportClassB,
+    PositionReportClassBExtended, StaticDataReport, StaticDataReportPartA, StaticDataReportPartB,
+    StaticVoyageData,
+};
 
 use crate::bits::{BitReader, BitWriter};
 use crate::error::{BitError, MessageError};
@@ -18,6 +22,16 @@ use crate::error::{BitError, MessageError};
 pub enum AisMessage {
     /// Message types 1, 2, and 3: Position Report Class A.
     PositionReportClassA(PositionReportClassA),
+    /// Message type 5: Static and Voyage Related Data.
+    StaticVoyageData(StaticVoyageData),
+    /// Message type 18: Standard Class B Position Report.
+    PositionReportClassB(PositionReportClassB),
+    /// Message type 19: Extended Class B Position Report.
+    PositionReportClassBExtended(PositionReportClassBExtended),
+    /// Message type 21: Aid-to-Navigation Report.
+    AidToNavigationReport(AidToNavigationReport),
+    /// Message type 24: Static Data Report (Part A or Part B).
+    StaticDataReport(StaticDataReport),
 }
 
 impl AisMessage {
@@ -35,6 +49,15 @@ impl AisMessage {
                 message_type,
                 r,
             )?)),
+            5 => Ok(Self::StaticVoyageData(StaticVoyageData::decode(r)?)),
+            18 => Ok(Self::PositionReportClassB(PositionReportClassB::decode(r)?)),
+            19 => Ok(Self::PositionReportClassBExtended(
+                PositionReportClassBExtended::decode(r)?,
+            )),
+            21 => Ok(Self::AidToNavigationReport(AidToNavigationReport::decode(
+                r,
+            )?)),
+            24 => Ok(Self::StaticDataReport(StaticDataReport::decode(r)?)),
             other => Err(MessageError::UnknownMessageType(other)),
         }
     }
@@ -44,6 +67,11 @@ impl AisMessage {
     pub const fn message_type(&self) -> u8 {
         match self {
             Self::PositionReportClassA(m) => m.message_type,
+            Self::StaticVoyageData(_) => 5,
+            Self::PositionReportClassB(_) => 18,
+            Self::PositionReportClassBExtended(_) => 19,
+            Self::AidToNavigationReport(_) => 21,
+            Self::StaticDataReport(_) => 24,
         }
     }
 
@@ -54,6 +82,11 @@ impl AisMessage {
     pub fn encode(&self, w: &mut BitWriter<'_>) -> Result<(), BitError> {
         match self {
             Self::PositionReportClassA(m) => m.encode(w),
+            Self::StaticVoyageData(m) => m.encode(w),
+            Self::PositionReportClassB(m) => m.encode(w),
+            Self::PositionReportClassBExtended(m) => m.encode(w),
+            Self::AidToNavigationReport(m) => m.encode(w),
+            Self::StaticDataReport(m) => m.encode(w),
         }
     }
 }

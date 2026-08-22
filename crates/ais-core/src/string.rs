@@ -55,11 +55,19 @@ pub const fn ascii_to_sixbit(c: u8) -> u8 {
 ///
 /// Trailing `@` padding and spaces (as used by the AIS six-bit text
 /// convention) are trimmed by [`FixedStr::as_str`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub struct FixedStr<const N: usize> {
     buf: [u8; N],
     len: usize,
 }
+
+impl<const N: usize> PartialEq for FixedStr<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl<const N: usize> Eq for FixedStr<N> {}
 
 impl<const N: usize> FixedStr<N> {
     /// Builds a `FixedStr` from a raw buffer and the number of meaningful
@@ -87,6 +95,18 @@ impl<const N: usize> core::fmt::Display for FixedStr<N> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+/// Builds a full-width `FixedStr<N>` from `s`, right-padded with `@`.
+///
+/// Only used by message-type unit tests to build sample field values without
+/// hand-counting padding characters in byte-string literals.
+#[cfg(test)]
+pub(crate) fn test_padded<const N: usize>(s: &str) -> FixedStr<N> {
+    let mut buf = [b'@'; N];
+    let bytes = s.as_bytes();
+    buf[..bytes.len()].copy_from_slice(bytes);
+    FixedStr::from_raw(buf, N)
 }
 
 #[cfg(test)]
