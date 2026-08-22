@@ -50,20 +50,29 @@ impl Interrogation {
         r.skip(2)?; // spare
         let station_1_mmsi = Mmsi::from_raw(r.read_u32(30)?);
         let station_1_request_1 = decode_request(r)?;
-        r.skip(2)?; // spare
 
-        let station_1_request_2 = if r.remaining_bits() >= 20 {
-            let request = decode_request(r)?;
+        // Each of the following chunks is independently optional: real-world
+        // producers are inconsistent about whether trailing spare bits are
+        // present at each cut point (there is a known design ambiguity in
+        // the ITU-R M.1371 spec here), so every piece is guarded on its own
+        // rather than assuming a fixed combined width.
+        if r.remaining_bits() >= 2 {
             r.skip(2)?; // spare
-            Some(request)
+        }
+
+        let station_1_request_2 = if r.remaining_bits() >= 18 {
+            Some(decode_request(r)?)
         } else {
             None
         };
 
-        let station_2 = if r.remaining_bits() >= 50 {
+        if r.remaining_bits() >= 2 {
+            r.skip(2)?; // spare
+        }
+
+        let station_2 = if r.remaining_bits() >= 48 {
             let station_mmsi = Mmsi::from_raw(r.read_u32(30)?);
             let request = decode_request(r)?;
-            r.skip(2)?; // spare
             Some(SecondStation {
                 mmsi: station_mmsi,
                 request,
@@ -71,6 +80,10 @@ impl Interrogation {
         } else {
             None
         };
+
+        if r.remaining_bits() >= 2 {
+            r.skip(2)?; // spare
+        }
 
         Ok(Self {
             repeat_indicator,
@@ -89,17 +102,23 @@ impl Interrogation {
         w.write_bits(0, 2)?; // spare
         w.write_bits(u64::from(self.station_1_mmsi.raw()), 30)?;
         encode_request(self.station_1_request_1, w)?;
-        w.write_bits(0, 2)?; // spare
 
-        if let Some(request) = self.station_1_request_2 {
-            encode_request(request, w)?;
+        // station_2 can only be positioned correctly if the request_2 slot
+        // ahead of it is also written, even if request_2 itself is absent.
+        let write_request_2 = self.station_1_request_2.is_some() || self.station_2.is_some();
+        if write_request_2 {
             w.write_bits(0, 2)?; // spare
+            let request = self.station_1_request_2.unwrap_or(MessageRequest {
+                message_type: 0,
+                slot_offset: 0,
+            });
+            encode_request(request, w)?;
         }
 
         if let Some(station_2) = self.station_2 {
+            w.write_bits(0, 2)?; // spare
             w.write_bits(u64::from(station_2.mmsi.raw()), 30)?;
             encode_request(station_2.request, w)?;
-            w.write_bits(0, 2)?; // spare
         }
 
         Ok(())

@@ -30,6 +30,12 @@ pub enum ChannelManagementTarget {
 }
 
 /// Channel Management (message type 22, 168 bits).
+///
+/// The wire format is unusual: the area/addressed union occupies a fixed
+/// 70 bits regardless of which variant is in use (the addressed variant
+/// pads each 30-bit MMSI out to 35 bits with 5 spare bits), and the flag
+/// selecting which variant applies is transmitted *after* that union block
+/// (bit 139) rather than before it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(
     clippy::struct_excessive_bools,
@@ -58,6 +64,9 @@ pub struct ChannelManagement {
     pub zone_size: u8,
 }
 
+/// Width of the area/addressed union block: always 70 bits, regardless of variant.
+const UNION_BITS: u32 = 70;
+
 impl ChannelManagement {
     #[allow(
         clippy::similar_names,
@@ -71,11 +80,21 @@ impl ChannelManagement {
         let channel_b = r.read_u16(12)?;
         let tx_rx_mode = r.read_u8(4)?;
         let low_power = r.read_bool()?;
-        let addressed = r.read_bool()?;
+
+        // The addressed/broadcast flag lives after the 70-bit union block
+        // (bit 139), not before it: peek ahead with a cloned reader to learn
+        // which interpretation applies before consuming the union bits.
+        let addressed = {
+            let mut lookahead = r.clone();
+            lookahead.skip(UNION_BITS)?;
+            lookahead.read_bool()?
+        };
 
         let target = if addressed {
             let destination_mmsi_1 = Mmsi::from_raw(r.read_u32(30)?);
+            r.skip(5)?; // spare
             let destination_mmsi_2 = Mmsi::from_raw(r.read_u32(30)?);
+            r.skip(5)?; // spare
             ChannelManagementTarget::Addressed {
                 destination_mmsi_1,
                 destination_mmsi_2,
@@ -93,16 +112,11 @@ impl ChannelManagement {
             }
         };
 
+        r.skip(1)?; // the addressed flag itself, already consumed via lookahead
         let channel_a_bandwidth = r.read_bool()?;
         let channel_b_bandwidth = r.read_bool()?;
         let zone_size = r.read_u8(3)?;
-        // trailing spare: 23 bits (broadcast) or 33 bits (addressed), per the flag above
-        #[allow(
-            clippy::cast_possible_truncation,
-            reason = "message payloads are at most ~1000 bits, always fits u32"
-        )]
-        let spare_bits = r.remaining_bits() as u32;
-        r.skip(spare_bits)?;
+        r.skip(23)?; // spare2, always 23 bits regardless of mode
 
         Ok(Self {
             repeat_indicator,
@@ -128,15 +142,16 @@ impl ChannelManagement {
         w.write_bits(u64::from(self.tx_rx_mode), 4)?;
         w.write_bool(self.low_power)?;
 
-        let spare_bits = match self.target {
+        let addressed = match self.target {
             ChannelManagementTarget::Addressed {
                 destination_mmsi_1,
                 destination_mmsi_2,
             } => {
-                w.write_bool(true)?;
                 w.write_bits(u64::from(destination_mmsi_1.raw()), 30)?;
+                w.write_bits(0, 5)?; // spare
                 w.write_bits(u64::from(destination_mmsi_2.raw()), 30)?;
-                33
+                w.write_bits(0, 5)?; // spare
+                true
             }
             ChannelManagementTarget::Area {
                 ne_longitude_raw,
@@ -144,19 +159,19 @@ impl ChannelManagement {
                 sw_longitude_raw,
                 sw_latitude_raw,
             } => {
-                w.write_bool(false)?;
                 w.write_signed(i64::from(ne_longitude_raw), 18)?;
                 w.write_signed(i64::from(ne_latitude_raw), 17)?;
                 w.write_signed(i64::from(sw_longitude_raw), 18)?;
                 w.write_signed(i64::from(sw_latitude_raw), 17)?;
-                23
+                false
             }
         };
 
+        w.write_bool(addressed)?;
         w.write_bool(self.channel_a_bandwidth)?;
         w.write_bool(self.channel_b_bandwidth)?;
         w.write_bits(u64::from(self.zone_size), 3)?;
-        w.write_bits(0, spare_bits)?;
+        w.write_bits(0, 23)?; // spare2
         Ok(())
     }
 }
@@ -209,5 +224,35 @@ mod tests {
             destination_mmsi_2: Mmsi::from_raw(366_999_999),
         });
         assert_eq!(round_trip(original), original);
+    }
+
+    #[test]
+    fn decodes_real_captured_addressed_message() {
+        // !AIVDM,1,1,,B,F6@2lUP0<0010W@OoK8<@oPE`02`,0*03 (raishub, 1332549829)
+        // independently verified by libais: chan_a=3, chan_b=0,
+        // dest_mmsi_1=135504126, dest_mmsi_2=746787038, mmsi=419476630,
+        // power_low=False, repeat_indicator=0, txrx_mode=0, zone_size=3,
+        // chan_a_bandwidth=0, chan_b_bandwidth=1.
+        let payload = b"F6@2lUP0<0010W@OoK8<@oPE`02`";
+        let mut r = BitReader::new(payload, 0);
+        assert_eq!(r.read_u8(6).unwrap(), 22);
+        let msg = ChannelManagement::decode(&mut r).unwrap();
+
+        assert_eq!(msg.repeat_indicator, 0);
+        assert_eq!(msg.mmsi.raw(), 419_476_630);
+        assert_eq!(msg.channel_a, 3);
+        assert_eq!(msg.channel_b, 0);
+        assert_eq!(msg.tx_rx_mode, 0);
+        assert!(!msg.low_power);
+        assert!(!msg.channel_a_bandwidth);
+        assert!(msg.channel_b_bandwidth);
+        assert_eq!(msg.zone_size, 3);
+        assert_eq!(
+            msg.target,
+            ChannelManagementTarget::Addressed {
+                destination_mmsi_1: Mmsi::from_raw(135_504_126),
+                destination_mmsi_2: Mmsi::from_raw(746_787_038),
+            }
+        );
     }
 }

@@ -24,7 +24,7 @@ pub struct MultiSlotBinaryMessage {
     pub data: BinaryPayload<MAX_DATA_BYTES>,
     /// Communication state format selector (`false` = SOTDMA, `true` = ITDMA).
     pub communication_state_itdma: bool,
-    /// Raw 20-bit communication state, undecoded.
+    /// Raw 19-bit communication state, undecoded.
     pub radio_status: u32,
 }
 
@@ -46,11 +46,11 @@ impl MultiSlotBinaryMessage {
         } else {
             None
         };
-        // the trailing 21 bits are always the communication-state selector and state
-        let data_bits = r.remaining_bits().saturating_sub(21);
+        // the trailing 20 bits are always the communication-state selector and state
+        let data_bits = r.remaining_bits().saturating_sub(20);
         let data = BinaryPayload::decode(r, data_bits)?;
         let communication_state_itdma = r.read_bool()?;
-        let radio_status = r.read_u32(20)?;
+        let radio_status = r.read_u32(19)?;
 
         Ok(Self {
             repeat_indicator,
@@ -78,7 +78,7 @@ impl MultiSlotBinaryMessage {
         }
         self.data.encode(w)?;
         w.write_bool(self.communication_state_itdma)?;
-        w.write_bits(u64::from(self.radio_status), 20)?;
+        w.write_bits(u64::from(self.radio_status), 19)?;
         Ok(())
     }
 }

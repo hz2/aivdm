@@ -40,6 +40,9 @@ pub struct AidToNavigationReport {
     pub timestamp: Timestamp,
     /// Whether the aid to navigation is off its charted position.
     pub off_position: bool,
+    /// Raw 8-bit regional/status byte (real-world transponders put non-zero
+    /// data here despite it being nominally reserved).
+    pub regional_reserved: u8,
     /// Whether the RAIM (Receiver Autonomous Integrity Monitoring) flag is set.
     pub raim: bool,
     /// Whether this is a virtual (non-physical) aid to navigation.
@@ -64,7 +67,7 @@ impl AidToNavigationReport {
         let epfd_type = EpfdType::from_raw(r.read_u8(4)?);
         let timestamp = Timestamp::from_raw(r.read_u8(6)?);
         let off_position = r.read_bool()?;
-        r.skip(8)?; // regional reserved
+        let regional_reserved = r.read_u8(8)?;
         let raim = r.read_bool()?;
         let virtual_aid = r.read_bool()?;
         let assigned = r.read_bool()?;
@@ -93,6 +96,7 @@ impl AidToNavigationReport {
             epfd_type,
             timestamp,
             off_position,
+            regional_reserved,
             raim,
             virtual_aid,
             assigned,
@@ -116,7 +120,7 @@ impl AidToNavigationReport {
         w.write_bits(u64::from(self.epfd_type.to_raw()), 4)?;
         w.write_bits(u64::from(self.timestamp.to_raw()), 6)?;
         w.write_bool(self.off_position)?;
-        w.write_bits(0, 8)?; // regional reserved
+        w.write_bits(u64::from(self.regional_reserved), 8)?;
         w.write_bool(self.raim)?;
         w.write_bool(self.virtual_aid)?;
         w.write_bool(self.assigned)?;
@@ -170,6 +174,7 @@ mod tests {
             epfd_type: EpfdType::Surveyed,
             timestamp: Timestamp::from_raw(30),
             off_position: false,
+            regional_reserved: 0,
             raim: true,
             virtual_aid: true,
             assigned: false,
@@ -207,5 +212,38 @@ mod tests {
         let decoded = round_trip(original);
         assert_eq!(decoded, original);
         assert_eq!(decoded.name.as_str().len(), 30);
+    }
+
+    #[test]
+    fn decodes_real_captured_message() {
+        // !AIVDM,1,1,,B,E>jHC:k9Wbb4;WV2@6400000000@3nCL>v8t030HHKnf00,4*1C
+        // (raishub, 1332547247). Independently verified by libais:
+        // mmsi=992351019, aton_type=6, name='SOUTHWOLD LH@@@@@@@@',
+        // position_accuracy=1, x=1.6814333333333333, y=52.3272,
+        // dim_a=3, dim_b=3, dim_c=3, dim_d=3, fix_type=7, timestamp=45,
+        // off_pos=False, aton_status=224, raim=False, virtual_aton=False,
+        // assigned_mode=False, repeat_indicator=0.
+        let payload = b"E>jHC:k9Wbb4;WV2@6400000000@3nCL>v8t030HHKnf00";
+        let mut r = BitReader::new(payload, 4);
+        assert_eq!(r.read_u8(6).unwrap(), 21);
+        let msg = AidToNavigationReport::decode(&mut r).unwrap();
+
+        assert_eq!(msg.mmsi.raw(), 992_351_019);
+        assert_eq!(msg.aid_type, 6);
+        assert_eq!(msg.name.as_str(), "SOUTHWOLD LH");
+        assert!(msg.position_accuracy);
+        assert!((msg.longitude.as_degrees().unwrap() - 1.681_433_333_333).abs() < 1e-6);
+        assert!((msg.latitude.as_degrees().unwrap() - 52.3272).abs() < 1e-6);
+        assert_eq!(msg.dimension_to_bow, 3);
+        assert_eq!(msg.dimension_to_stern, 3);
+        assert_eq!(msg.dimension_to_port, 3);
+        assert_eq!(msg.dimension_to_starboard, 3);
+        assert_eq!(msg.epfd_type, EpfdType::Surveyed);
+        assert_eq!(msg.timestamp, Timestamp::Second(45));
+        assert!(!msg.off_position);
+        assert_eq!(msg.regional_reserved, 224);
+        assert!(!msg.raim);
+        assert!(!msg.virtual_aid);
+        assert!(!msg.assigned);
     }
 }

@@ -61,10 +61,14 @@ impl<'a> Sentence<'a> {
             .strip_prefix('!')
             .or_else(|| line.strip_prefix('$'))
             .ok_or(NmeaError::MalformedSentence)?;
-        let (body, checksum_str) = body.split_once('*').ok_or(NmeaError::MalformedSentence)?;
+        let (body, after_star) = body.split_once('*').ok_or(NmeaError::MalformedSentence)?;
+        // The checksum is always exactly 2 hex digits; some real-world feeds
+        // (e.g. aggregators like rasHub) append extra comma-separated
+        // metadata (source station, timestamp) after it, which we ignore.
+        let checksum_str = after_star.get(..2).ok_or(NmeaError::MalformedSentence)?;
 
-        let expected = u8::from_str_radix(checksum_str.trim(), 16)
-            .map_err(|_| NmeaError::MalformedSentence)?;
+        let expected =
+            u8::from_str_radix(checksum_str, 16).map_err(|_| NmeaError::MalformedSentence)?;
         let actual = checksum::compute(body.as_bytes());
         if expected != actual {
             return Err(NmeaError::ChecksumMismatch { expected, actual });
@@ -143,6 +147,15 @@ mod tests {
         assert_eq!(s.seq_id, None);
         assert_eq!(s.channel, Channel::B);
         assert_eq!(s.fill_bits, 0);
+        assert_eq!(s.payload, b"15M67FC000G?ufbE`FepT@3n00Sa");
+    }
+
+    #[test]
+    fn accepts_trailing_vendor_metadata_after_checksum() {
+        // Real-world aggregators (e.g. raishub) append ",<station>,<unix_ts>"
+        // after the 2-digit checksum; that suffix must not affect parsing.
+        let with_metadata = "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C,raishub,1342569600";
+        let s = Sentence::parse(with_metadata).unwrap();
         assert_eq!(s.payload, b"15M67FC000G?ufbE`FepT@3n00Sa");
     }
 

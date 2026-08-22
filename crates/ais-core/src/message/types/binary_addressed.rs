@@ -35,7 +35,9 @@ impl BinaryAddressedMessage {
         let mmsi = Mmsi::from_raw(r.read_u32(30)?);
         let sequence_number = r.read_u8(2)?;
         let destination_mmsi = Mmsi::from_raw(r.read_u32(30)?);
-        let retransmit = r.read_bool()?;
+        // per ITU-R M.1371, this wire bit is inverted relative to its
+        // apparent name: 0 = retransmission, 1 = not a retransmission.
+        let retransmit = !r.read_bool()?;
         r.skip(1)?; // spare
         let dac = r.read_u16(10)?;
         let fi = r.read_u8(6)?;
@@ -59,7 +61,7 @@ impl BinaryAddressedMessage {
         w.write_bits(u64::from(self.mmsi.raw()), 30)?;
         w.write_bits(u64::from(self.sequence_number), 2)?;
         w.write_bits(u64::from(self.destination_mmsi.raw()), 30)?;
-        w.write_bool(self.retransmit)?;
+        w.write_bool(!self.retransmit)?;
         w.write_bits(0, 1)?; // spare
         w.write_bits(u64::from(self.dac), 10)?;
         w.write_bits(u64::from(self.fi), 6)?;

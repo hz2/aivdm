@@ -21,12 +21,11 @@ pub struct StaticDataReportPartB {
     pub mmsi: Mmsi,
     /// Type of ship and cargo (raw code, ITU-R M.1371 Table 41).
     pub ship_type: u8,
-    /// Vendor ID: manufacturer's mnemonic code.
-    pub vendor_id: FixedStr<3>,
-    /// Vendor-assigned unit model code.
-    pub unit_model_code: u8,
-    /// Vendor-assigned serial number.
-    pub serial_number: u32,
+    /// Vendor ID: in practice, transponders encode this as a plain
+    /// manufacturer name string (e.g. `"COMAR"`) rather than the formally
+    /// specified vendor-code/model/serial sub-fields, so this crate follows
+    /// that real-world convention and exposes it as text.
+    pub vendor_id: FixedStr<7>,
     /// Radio call sign.
     pub call_sign: FixedStr<7>,
     /// Distance from GPS antenna to the bow, in meters (or, for an auxiliary
@@ -62,9 +61,7 @@ impl StaticDataReport {
             }
             1 => {
                 let ship_type = r.read_u8(8)?;
-                let vendor_id = r.read_sixbit_ascii(3)?;
-                let unit_model_code = r.read_u8(4)?;
-                let serial_number = r.read_u32(20)?;
+                let vendor_id = r.read_sixbit_ascii(7)?;
                 let call_sign = r.read_sixbit_ascii(7)?;
                 let dimension_to_bow = r.read_u16(9)?;
                 let dimension_to_stern = r.read_u16(9)?;
@@ -74,8 +71,6 @@ impl StaticDataReport {
                     mmsi,
                     ship_type,
                     vendor_id,
-                    unit_model_code,
-                    serial_number,
                     call_sign,
                     dimension_to_bow,
                     dimension_to_stern,
@@ -103,15 +98,13 @@ impl StaticDataReport {
                 w.write_bits(u64::from(b.mmsi.raw()), 30)?;
                 w.write_bits(1, 2)?; // part number B
                 w.write_bits(u64::from(b.ship_type), 8)?;
-                w.write_sixbit_ascii(b.vendor_id.as_str(), 3)?;
-                w.write_bits(u64::from(b.unit_model_code), 4)?;
-                w.write_bits(u64::from(b.serial_number), 20)?;
+                w.write_sixbit_ascii(b.vendor_id.as_str(), 7)?;
                 w.write_sixbit_ascii(b.call_sign.as_str(), 7)?;
                 w.write_bits(u64::from(b.dimension_to_bow), 9)?;
                 w.write_bits(u64::from(b.dimension_to_stern), 9)?;
                 w.write_bits(u64::from(b.dimension_to_port), 6)?;
                 w.write_bits(u64::from(b.dimension_to_starboard), 6)?;
-                w.write_bits(0, 2)?; // spare
+                w.write_bits(0, 6)?; // spare
             }
         }
         Ok(())
@@ -148,9 +141,7 @@ mod tests {
         let original = StaticDataReport::B(StaticDataReportPartB {
             mmsi: Mmsi::from_raw(366_053_209),
             ship_type: 70,
-            vendor_id: test_padded("ABC"),
-            unit_model_code: 3,
-            serial_number: 123_456,
+            vendor_id: test_padded("ABCDEFG"),
             call_sign: test_padded("WDA9674"),
             dimension_to_bow: 100,
             dimension_to_stern: 20,
@@ -158,5 +149,29 @@ mod tests {
             dimension_to_starboard: 10,
         });
         assert_eq!(round_trip(original), original);
+    }
+
+    #[test]
+    fn decodes_real_captured_part_b() {
+        // !AIVDM,1,1,,B,H3pro:4q3?=1B0000000000P7220,0*59 (raishub, 1332550009)
+        // independently verified by libais: mmsi=261011240, part_num=1,
+        // type_and_cargo=57, vendor_id='COMAR@@', callsign='@@@@@@@',
+        // dim_a=4, dim_b=7, dim_c=2, dim_d=2, repeat_indicator=0.
+        let payload = b"H3pro:4q3?=1B0000000000P7220";
+        let mut r = BitReader::new(payload, 0);
+        assert_eq!(r.read_u8(6).unwrap(), 24);
+        let msg = StaticDataReport::decode(&mut r).unwrap();
+
+        let StaticDataReport::B(b) = msg else {
+            panic!("expected part B");
+        };
+        assert_eq!(b.mmsi.raw(), 261_011_240);
+        assert_eq!(b.ship_type, 57);
+        assert_eq!(b.vendor_id.as_str(), "COMAR");
+        assert_eq!(b.call_sign.as_str(), "");
+        assert_eq!(b.dimension_to_bow, 4);
+        assert_eq!(b.dimension_to_stern, 7);
+        assert_eq!(b.dimension_to_port, 2);
+        assert_eq!(b.dimension_to_starboard, 2);
     }
 }

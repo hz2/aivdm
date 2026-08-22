@@ -2,7 +2,7 @@
 
 use crate::bits::{BitReader, BitWriter};
 use crate::error::{BitError, MessageError};
-use crate::message::common::{Cog, Latitude, Longitude, Mmsi, Sog, Timestamp};
+use crate::message::common::{Cog, Latitude, Longitude, Mmsi, Timestamp};
 
 /// Standard SAR Aircraft Position Report (message type 9, 168 bits).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,8 +17,10 @@ pub struct SarAircraftPositionReport {
     pub mmsi: Mmsi,
     /// GNSS altitude in meters (0..=4094), or 4095 if not available.
     pub altitude_meters: u16,
-    /// Speed over ground.
-    pub sog: Sog,
+    /// Speed over ground, in whole knots (0..=1022), unlike the 0.1-knot
+    /// resolution used by the other position report types. 1023 = not
+    /// available, 1022 = 1022 knots or higher.
+    pub sog_knots: u16,
     /// Whether the reported position has better than 10m DGPS-quality accuracy.
     pub position_accuracy: bool,
     /// Longitude.
@@ -31,8 +33,9 @@ pub struct SarAircraftPositionReport {
     pub timestamp: Timestamp,
     /// Altitude sensor type (`false` = GNSS, `true` = barometric).
     pub barometric_altitude: bool,
-    /// Whether the data terminal equipment is ready.
-    pub dte_ready: bool,
+    /// Whether the data terminal equipment is *not* ready (raw wire polarity:
+    /// `true` = not available/not ready).
+    pub dte_not_ready: bool,
     /// Whether the station is assigned by a message 16 or 22.
     pub assigned: bool,
     /// Whether the RAIM (Receiver Autonomous Integrity Monitoring) flag is set.
@@ -46,7 +49,7 @@ impl SarAircraftPositionReport {
         let repeat_indicator = r.read_u8(2)?;
         let mmsi = Mmsi::from_raw(r.read_u32(30)?);
         let altitude_meters = r.read_u16(12)?;
-        let sog = Sog::from_raw(r.read_u16(10)?);
+        let sog_knots = r.read_u16(10)?;
         let position_accuracy = r.read_bool()?;
         let longitude = Longitude::from_raw(r.read_i32(28)?);
         let latitude = Latitude::from_raw(r.read_i32(27)?);
@@ -54,7 +57,7 @@ impl SarAircraftPositionReport {
         let timestamp = Timestamp::from_raw(r.read_u8(6)?);
         let barometric_altitude = r.read_bool()?;
         r.skip(7)?; // spare
-        let dte_ready = r.read_bool()?;
+        let dte_not_ready = r.read_bool()?;
         r.skip(3)?; // spare
         let assigned = r.read_bool()?;
         let raim = r.read_bool()?;
@@ -64,14 +67,14 @@ impl SarAircraftPositionReport {
             repeat_indicator,
             mmsi,
             altitude_meters,
-            sog,
+            sog_knots,
             position_accuracy,
             longitude,
             latitude,
             cog,
             timestamp,
             barometric_altitude,
-            dte_ready,
+            dte_not_ready,
             assigned,
             raim,
             radio_status,
@@ -83,7 +86,7 @@ impl SarAircraftPositionReport {
         w.write_bits(u64::from(self.repeat_indicator), 2)?;
         w.write_bits(u64::from(self.mmsi.raw()), 30)?;
         w.write_bits(u64::from(self.altitude_meters), 12)?;
-        w.write_bits(u64::from(self.sog.raw()), 10)?;
+        w.write_bits(u64::from(self.sog_knots), 10)?;
         w.write_bool(self.position_accuracy)?;
         w.write_signed(i64::from(self.longitude.raw()), 28)?;
         w.write_signed(i64::from(self.latitude.raw()), 27)?;
@@ -91,7 +94,7 @@ impl SarAircraftPositionReport {
         w.write_bits(u64::from(self.timestamp.to_raw()), 6)?;
         w.write_bool(self.barometric_altitude)?;
         w.write_bits(0, 7)?; // spare
-        w.write_bool(self.dte_ready)?;
+        w.write_bool(self.dte_not_ready)?;
         w.write_bits(0, 3)?; // spare
         w.write_bool(self.assigned)?;
         w.write_bool(self.raim)?;
@@ -109,14 +112,14 @@ mod tests {
             repeat_indicator: 0,
             mmsi: Mmsi::from_raw(111_234_567),
             altitude_meters: 1200,
-            sog: Sog::from_raw(850),
+            sog_knots: 850,
             position_accuracy: false,
             longitude: Longitude::from_raw(-44_100_000),
             latitude: Latitude::from_raw(24_600_000),
             cog: Cog::from_raw(900),
             timestamp: Timestamp::from_raw(12),
             barometric_altitude: true,
-            dte_ready: true,
+            dte_not_ready: true,
             assigned: false,
             raim: true,
             radio_status: 654_321,

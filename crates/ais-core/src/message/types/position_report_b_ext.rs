@@ -46,8 +46,9 @@ pub struct PositionReportClassBExtended {
     pub epfd_type: EpfdType,
     /// Whether the RAIM (Receiver Autonomous Integrity Monitoring) flag is set.
     pub raim: bool,
-    /// Whether the data terminal equipment is ready.
-    pub dte_ready: bool,
+    /// Whether the data terminal equipment is *not* ready (raw wire polarity:
+    /// `true` = not available/not ready).
+    pub dte_not_ready: bool,
     /// Whether the station is assigned by a message 16 or 22.
     pub assigned: bool,
 }
@@ -73,7 +74,7 @@ impl PositionReportClassBExtended {
         let dimension_to_starboard = r.read_u8(6)?;
         let epfd_type = EpfdType::from_raw(r.read_u8(4)?);
         let raim = r.read_bool()?;
-        let dte_ready = r.read_bool()?;
+        let dte_not_ready = r.read_bool()?;
         let assigned = r.read_bool()?;
         r.skip(4)?; // spare
 
@@ -95,7 +96,7 @@ impl PositionReportClassBExtended {
             dimension_to_starboard,
             epfd_type,
             raim,
-            dte_ready,
+            dte_not_ready,
             assigned,
         })
     }
@@ -121,7 +122,7 @@ impl PositionReportClassBExtended {
         w.write_bits(u64::from(self.dimension_to_starboard), 6)?;
         w.write_bits(u64::from(self.epfd_type.to_raw()), 4)?;
         w.write_bool(self.raim)?;
-        w.write_bool(self.dte_ready)?;
+        w.write_bool(self.dte_not_ready)?;
         w.write_bool(self.assigned)?;
         w.write_bits(0, 4)?; // spare
         Ok(())
@@ -152,7 +153,7 @@ mod tests {
             dimension_to_starboard: 2,
             epfd_type: EpfdType::Gps,
             raim: true,
-            dte_ready: true,
+            dte_not_ready: true,
             assigned: false,
         }
     }
