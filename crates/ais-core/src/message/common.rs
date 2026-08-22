@@ -1,5 +1,83 @@
 //! Field types shared across multiple ITU-R M.1371 message types.
 
+use crate::bits::{BitReader, BitWriter};
+use crate::error::BitError;
+
+/// Undecoded application-specific binary data, as carried by the DAC/FI
+/// binary messages (types 6, 8, 25, 26).
+///
+/// This crate does not attempt to decode every IMO/regional-registered
+/// application message; callers who need to interpret the payload can read
+/// [`BinaryPayload::bits`] themselves against the relevant application
+/// specification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BinaryPayload<const N: usize> {
+    buf: [u8; N],
+    bit_len: usize,
+}
+
+impl<const N: usize> BinaryPayload<N> {
+    /// Number of meaningful bits stored.
+    #[must_use]
+    pub const fn bit_len(&self) -> usize {
+        self.bit_len
+    }
+
+    /// The payload, packed MSB-first into bytes (the final byte is
+    /// left-aligned if `bit_len` is not a multiple of 8).
+    #[must_use]
+    pub fn bytes(&self) -> &[u8] {
+        &self.buf[..self.bit_len.div_ceil(8)]
+    }
+
+    pub(crate) fn decode(r: &mut BitReader<'_>, bit_len: usize) -> Result<Self, BitError> {
+        if bit_len.div_ceil(8) > N {
+            return Err(BitError::OutOfRange {
+                field: "BinaryPayload",
+            });
+        }
+        let mut buf = [0u8; N];
+        let mut remaining = bit_len;
+        let mut i = 0;
+        while remaining > 0 {
+            let take = remaining.min(8);
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "take is clamped to 8 above, fits u32"
+            )]
+            let byte = r.read_u8(take as u32)?;
+            buf[i] = byte << (8 - take);
+            remaining -= take;
+            i += 1;
+        }
+        Ok(Self { buf, bit_len })
+    }
+
+    pub(crate) fn encode(&self, w: &mut BitWriter<'_>) -> Result<(), BitError> {
+        let mut remaining = self.bit_len;
+        let mut i = 0;
+        while remaining > 0 {
+            let take = remaining.min(8);
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "take is clamped to 8 above, fits u32"
+            )]
+            let take_u32 = take as u32;
+            let byte = self.buf[i] >> (8 - take);
+            w.write_bits(u64::from(byte), take_u32)?;
+            remaining -= take;
+            i += 1;
+        }
+        Ok(())
+    }
+
+    /// Builds a payload directly from already MSB-first-packed bytes, for tests.
+    #[cfg(test)]
+    pub(crate) const fn test_from_raw(buf: [u8; N], bit_len: usize) -> Self {
+        Self { buf, bit_len }
+    }
+}
+
 /// A Maritime Mobile Service Identity: a 9-digit numeric station identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Mmsi(u32);

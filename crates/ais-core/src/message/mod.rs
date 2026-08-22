@@ -5,9 +5,11 @@ pub mod common;
 mod types;
 
 pub use types::{
-    AidToNavigationReport, BaseStationReport, LongRangeBroadcast, PositionReportClassA,
-    PositionReportClassB, PositionReportClassBExtended, SarAircraftPositionReport,
-    StaticDataReport, StaticDataReportPartA, StaticDataReportPartB, StaticVoyageData,
+    Ack, Acknowledge, AidToNavigationReport, BaseStationReport, BinaryAddressedMessage,
+    BinaryBroadcastMessage, LongRangeBroadcast, MultiSlotBinaryMessage, PositionReportClassA,
+    PositionReportClassB, PositionReportClassBExtended, SafetyRelatedAddressed,
+    SafetyRelatedBroadcast, SarAircraftPositionReport, SingleSlotBinaryMessage, StaticDataReport,
+    StaticDataReportPartA, StaticDataReportPartB, StaticVoyageData,
 };
 
 use crate::bits::{BitReader, BitWriter};
@@ -38,6 +40,20 @@ pub enum AisMessage {
     SarAircraftPositionReport(SarAircraftPositionReport),
     /// Message type 27: Long Range AIS Broadcast message.
     LongRangeBroadcast(LongRangeBroadcast),
+    /// Message type 6: Binary Addressed Message.
+    BinaryAddressedMessage(BinaryAddressedMessage),
+    /// Message types 7 and 13: Binary Acknowledge / Safety Related Acknowledge.
+    Acknowledge(Acknowledge),
+    /// Message type 8: Binary Broadcast Message.
+    BinaryBroadcastMessage(BinaryBroadcastMessage),
+    /// Message type 12: Addressed Safety Related Message.
+    SafetyRelatedAddressed(SafetyRelatedAddressed),
+    /// Message type 14: Safety Related Broadcast Message.
+    SafetyRelatedBroadcast(SafetyRelatedBroadcast),
+    /// Message type 25: Single Slot Binary Message.
+    SingleSlotBinaryMessage(SingleSlotBinaryMessage),
+    /// Message type 26: Multiple Slot Binary Message.
+    MultiSlotBinaryMessage(MultiSlotBinaryMessage),
 }
 
 impl AisMessage {
@@ -72,6 +88,25 @@ impl AisMessage {
                 SarAircraftPositionReport::decode(r)?,
             )),
             27 => Ok(Self::LongRangeBroadcast(LongRangeBroadcast::decode(r)?)),
+            6 => Ok(Self::BinaryAddressedMessage(
+                BinaryAddressedMessage::decode(r)?,
+            )),
+            7 | 13 => Ok(Self::Acknowledge(Acknowledge::decode(message_type, r)?)),
+            8 => Ok(Self::BinaryBroadcastMessage(
+                BinaryBroadcastMessage::decode(r)?,
+            )),
+            12 => Ok(Self::SafetyRelatedAddressed(
+                SafetyRelatedAddressed::decode(r)?,
+            )),
+            14 => Ok(Self::SafetyRelatedBroadcast(
+                SafetyRelatedBroadcast::decode(r)?,
+            )),
+            25 => Ok(Self::SingleSlotBinaryMessage(
+                SingleSlotBinaryMessage::decode(r)?,
+            )),
+            26 => Ok(Self::MultiSlotBinaryMessage(
+                MultiSlotBinaryMessage::decode(r)?,
+            )),
             other => Err(MessageError::UnknownMessageType(other)),
         }
     }
@@ -89,6 +124,13 @@ impl AisMessage {
             Self::BaseStationReport(m) => m.message_type,
             Self::SarAircraftPositionReport(_) => 9,
             Self::LongRangeBroadcast(_) => 27,
+            Self::BinaryAddressedMessage(_) => 6,
+            Self::Acknowledge(m) => m.message_type,
+            Self::BinaryBroadcastMessage(_) => 8,
+            Self::SafetyRelatedAddressed(_) => 12,
+            Self::SafetyRelatedBroadcast(_) => 14,
+            Self::SingleSlotBinaryMessage(_) => 25,
+            Self::MultiSlotBinaryMessage(_) => 26,
         }
     }
 
@@ -107,6 +149,13 @@ impl AisMessage {
             Self::BaseStationReport(m) => m.encode(w),
             Self::SarAircraftPositionReport(m) => m.encode(w),
             Self::LongRangeBroadcast(m) => m.encode(w),
+            Self::BinaryAddressedMessage(m) => m.encode(w),
+            Self::Acknowledge(m) => m.encode(w),
+            Self::BinaryBroadcastMessage(m) => m.encode(w),
+            Self::SafetyRelatedAddressed(m) => m.encode(w),
+            Self::SafetyRelatedBroadcast(m) => m.encode(w),
+            Self::SingleSlotBinaryMessage(m) => m.encode(w),
+            Self::MultiSlotBinaryMessage(m) => m.encode(w),
         }
     }
 }
