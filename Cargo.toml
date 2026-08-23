@@ -4,6 +4,7 @@ members = ["crates/aivdm", "crates/aivdm-cli", "crates/aivdm-ffi"]
 
 [workspace.package]
 version = "0.2.1"
+authors = ["hz2 <dev.json2@gmail.com>"]
 edition = "2024"
 rust-version = "1.87.0"
 license = "MIT"

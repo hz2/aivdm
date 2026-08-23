@@ -2,6 +2,7 @@
 name = "aivdm"
 description = "no_std, no_alloc parser and encoder for AIS (ITU-R M.1371) messages over NMEA 0183"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

@@ -2,6 +2,7 @@
 name = "aivdm-cli"
 description = "Command-line decoder for AIS (ITU-R M.1371) NMEA sentences, built on aivdm"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

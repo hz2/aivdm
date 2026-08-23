@@ -2,6 +2,7 @@
 name = "aivdm-ffi"
 description = "C FFI bindings for the aivdm AIS (ITU-R M.1371) decoder"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

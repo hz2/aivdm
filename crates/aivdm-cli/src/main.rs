@@ -15,6 +15,7 @@ mod print;
 
 /// Decode AIS `!AIVDM`/`!AIVDO` sentences from a file or stdin.
 #[derive(Parser)]
+#[command(version)]
 struct Args {
     /// Path to a file of NMEA lines; reads stdin if omitted.
     file: Option<PathBuf>,
