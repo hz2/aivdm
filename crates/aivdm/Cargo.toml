@@ -19,10 +19,20 @@ workspace = true
 default = []
 heapless = ["dep:heapless"]
 defmt = ["dep:defmt"]
+# Adds `to_uom()` conversions on the physical-quantity newtypes (Sog, Cog,
+# Heading, Latitude, Longitude) to `uom` quantities. Optional and no_std
+# compatible (uom's own "std" feature is not enabled) so it doesn't affect
+# anyone who doesn't ask for it.
+uom = ["dep:uom"]
 
 [dependencies]
 heapless = { version = "0.8", optional = true, default-features = false }
 defmt = { version = "0.3", optional = true }
+uom = { version = "0.38", optional = true, default-features = false, features = [
+  "f64",
+  "si",
+  "autoconvert",
+] }
 
 [dev-dependencies]
 proptest = "1"

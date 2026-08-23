@@ -135,6 +135,14 @@ impl Longitude {
     pub fn as_degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 600_000.0)
     }
+
+    /// The longitude as a [`uom`] angle, or `None` if not available.
+    #[cfg(feature = "uom")]
+    #[must_use]
+    pub fn to_uom(self) -> Option<uom::si::f64::Angle> {
+        use uom::si::angle::degree;
+        Some(uom::si::f64::Angle::new::<degree>(self.as_degrees()?))
+    }
 }
 
 /// Latitude in 1/10000-minute units (signed 27-bit field in the wire format).
@@ -164,6 +172,14 @@ impl Latitude {
     #[must_use]
     pub fn as_degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 600_000.0)
+    }
+
+    /// The latitude as a [`uom`] angle, or `None` if not available.
+    #[cfg(feature = "uom")]
+    #[must_use]
+    pub fn to_uom(self) -> Option<uom::si::f64::Angle> {
+        use uom::si::angle::degree;
+        Some(uom::si::f64::Angle::new::<degree>(self.as_degrees()?))
     }
 }
 
@@ -217,6 +233,14 @@ impl Sog {
     pub fn knots(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 10.0)
     }
+
+    /// The speed as a [`uom`] velocity, or `None` if not available.
+    #[cfg(feature = "uom")]
+    #[must_use]
+    pub fn to_uom(self) -> Option<uom::si::f64::Velocity> {
+        use uom::si::velocity::knot;
+        Some(uom::si::f64::Velocity::new::<knot>(self.knots()?))
+    }
 }
 
 /// Course over ground, in units of 0.1 degree (12-bit field).
@@ -249,6 +273,14 @@ impl Cog {
     #[must_use]
     pub fn degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 10.0)
+    }
+
+    /// The course as a [`uom`] angle, or `None` if not available.
+    #[cfg(feature = "uom")]
+    #[must_use]
+    pub fn to_uom(self) -> Option<uom::si::f64::Angle> {
+        use uom::si::angle::degree;
+        Some(uom::si::f64::Angle::new::<degree>(self.degrees()?))
     }
 }
 
@@ -286,6 +318,16 @@ impl Heading {
         } else {
             None
         }
+    }
+
+    /// The heading as a [`uom`] angle, or `None` if not available.
+    #[cfg(feature = "uom")]
+    #[must_use]
+    pub fn to_uom(self) -> Option<uom::si::f64::Angle> {
+        use uom::si::angle::degree;
+        Some(uom::si::f64::Angle::new::<degree>(f64::from(
+            self.degrees()?,
+        )))
     }
 }
 
@@ -563,6 +605,32 @@ mod tests {
     #[test]
     fn mmsi_displays_zero_padded() {
         assert_eq!(Mmsi::from_raw(123).to_string(), "000000123");
+    }
+
+    #[cfg(feature = "uom")]
+    #[test]
+    fn uom_conversions_match_plain_accessors() {
+        use uom::si::angle::degree;
+        use uom::si::velocity::knot;
+
+        let sog = Sog::from_raw(35);
+        assert!((sog.to_uom().unwrap().get::<knot>() - sog.knots().unwrap()).abs() < 1e-9);
+        assert_eq!(Sog::from_raw(Sog::NOT_AVAILABLE_RAW).to_uom(), None);
+
+        let cog = Cog::from_raw(1234);
+        assert!((cog.to_uom().unwrap().get::<degree>() - cog.degrees().unwrap()).abs() < 1e-9);
+
+        let heading = Heading::from_raw(88);
+        assert!(
+            (heading.to_uom().unwrap().get::<degree>() - f64::from(heading.degrees().unwrap()))
+                .abs()
+                < 1e-9
+        );
+
+        let lon = Longitude::from_raw(-44_100_000);
+        assert!((lon.to_uom().unwrap().get::<degree>() - lon.as_degrees().unwrap()).abs() < 1e-9);
+        let lat = Latitude::from_raw(24_600_000);
+        assert!((lat.to_uom().unwrap().get::<degree>() - lat.as_degrees().unwrap()).abs() < 1e-9);
     }
 
     #[test]
