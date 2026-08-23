@@ -3,9 +3,9 @@ resolver = "2"
 members = ["crates/aivdm", "crates/aivdm-cli", "crates/aivdm-ffi"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
-rust-version = "1.98.0"
+rust-version = "1.87.0"
 license = "MIT"
 repository = "https://github.com/hz2/aivdm"
 homepage = "https://github.com/hz2/aivdm"

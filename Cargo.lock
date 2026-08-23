@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aivdm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "defmt 0.3.100",
  "heapless",
@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "aivdm-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aivdm",
  "anyhow",
@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "aivdm-ffi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aivdm",
 ]

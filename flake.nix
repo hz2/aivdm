@@ -39,6 +39,15 @@
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+        # Keep in sync with `rust-version` in the workspace Cargo.toml.
+        # Verified via `cargo msrv find` (bisecting actual compiler
+        # versions), not just asserted -- see the msrv check below, which
+        # builds and tests the whole workspace with exactly this toolchain
+        # so a future MSRV bump that isn't actually needed (or isn't
+        # actually sufficient) gets caught rather than silently drifting.
+        msrvToolchain = pkgs.rust-bin.stable."1.87.0".default;
+        craneLibMsrv = (crane.mkLib pkgs).overrideToolchain msrvToolchain;
+
         # cleanCargoSource only keeps Rust/Cargo-relevant files; the FFI
         # crate also needs its checked-in header, cbindgen config, and C
         # smoke test present for the header-diff and ffi-smoke-test checks.
@@ -56,7 +65,7 @@
           inherit src;
           strictDeps = true;
           pname = "aivdm-workspace";
-          version = "0.1.0";
+          version = "0.1.1";
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -123,6 +132,10 @@
               buildPhaseCargoCommand = "RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps --all-features";
               installPhaseCommand = "mkdir -p $out";
             }
+          );
+
+          msrv = craneLibMsrv.cargoTest (
+            commonArgs // { cargoArtifacts = craneLibMsrv.buildDepsOnly commonArgs; }
           );
 
           no-std-verify = craneLib.mkCargoDerivation (
