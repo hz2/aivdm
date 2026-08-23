@@ -29,7 +29,8 @@ pub mod string;
 
 pub use error::AisError;
 pub use message::AisMessage;
-pub use nmea::{Channel, Sentence};
+pub use message::common::*;
+pub use nmea::{Channel, CompleteMessage, FragmentAssembler, Sentence};
 
 /// Decodes a single, complete NMEA line into a typed AIS message.
 ///
@@ -92,7 +93,7 @@ mod tests {
         assert_eq!(p.mmsi.raw(), 366_053_209);
         assert_eq!(
             p.navigation_status,
-            crate::message::common::NavigationStatus::RestrictedManoeuvrability
+            NavigationStatus::RestrictedManoeuvrability
         );
         assert!((p.longitude.as_degrees().unwrap() - (-122.341_618_333)).abs() < 1e-6);
         assert!((p.latitude.as_degrees().unwrap() - 37.802_118_333).abs() < 1e-6);
@@ -104,7 +105,7 @@ mod tests {
         assert_eq!(msg.mmsi().raw(), 366_053_209);
         assert_eq!(
             msg.navigation_status(),
-            Some(crate::message::common::NavigationStatus::RestrictedManoeuvrability)
+            Some(NavigationStatus::RestrictedManoeuvrability)
         );
         let position = msg.position().unwrap();
         assert!((position.latitude - 37.802_118_333).abs() < 1e-6);
