@@ -36,3 +36,8 @@ uom = { version = "0.38", optional = true, default-features = false, features = 
 
 [dev-dependencies]
 proptest = "1"
+criterion = "0.7"
+
+[[bench]]
+name = "codec"
+harness = false
