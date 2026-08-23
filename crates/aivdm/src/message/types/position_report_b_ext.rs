@@ -16,6 +16,10 @@ pub struct PositionReportClassBExtended {
     pub repeat_indicator: u8,
     /// Source station MMSI.
     pub mmsi: Mmsi,
+    /// Raw 8-bit reserved field (real-world transponders may put non-zero
+    /// data here despite it being nominally reserved, as seen with type 21's
+    /// `regional_reserved` byte).
+    pub reserved: u8,
     /// Speed over ground.
     pub sog: Sog,
     /// Whether the reported position has better than 10m DGPS-quality accuracy.
@@ -30,6 +34,8 @@ pub struct PositionReportClassBExtended {
     pub heading: Heading,
     /// UTC second timestamp.
     pub timestamp: Timestamp,
+    /// Raw 4-bit regional-reserved field.
+    pub regional_reserved: u8,
     /// Vessel name.
     pub name: FixedStr<20>,
     /// Type of ship and cargo (raw code, ITU-R M.1371 Table 41).
@@ -57,7 +63,7 @@ impl PositionReportClassBExtended {
     pub(crate) fn decode(r: &mut BitReader<'_>) -> Result<Self, MessageError> {
         let repeat_indicator = r.read_u8(2)?;
         let mmsi = Mmsi::from_raw(r.read_u32(30)?);
-        r.skip(8)?; // regional reserved
+        let reserved = r.read_u8(8)?;
         let sog = Sog::from_raw(r.read_u16(10)?);
         let position_accuracy = r.read_bool()?;
         let longitude = Longitude::from_raw(r.read_i32(28)?);
@@ -65,7 +71,7 @@ impl PositionReportClassBExtended {
         let cog = Cog::from_raw(r.read_u16(12)?);
         let heading = Heading::from_raw(r.read_u16(9)?);
         let timestamp = Timestamp::from_raw(r.read_u8(6)?);
-        r.skip(4)?; // regional reserved
+        let regional_reserved = r.read_u8(4)?;
         let name = r.read_sixbit_ascii(20)?;
         let ship_type = r.read_u8(8)?;
         let dimension_to_bow = r.read_u16(9)?;
@@ -81,6 +87,7 @@ impl PositionReportClassBExtended {
         Ok(Self {
             repeat_indicator,
             mmsi,
+            reserved,
             sog,
             position_accuracy,
             longitude,
@@ -88,6 +95,7 @@ impl PositionReportClassBExtended {
             cog,
             heading,
             timestamp,
+            regional_reserved,
             name,
             ship_type,
             dimension_to_bow,
@@ -105,7 +113,7 @@ impl PositionReportClassBExtended {
         w.write_bits(19, 6)?;
         w.write_bits(u64::from(self.repeat_indicator), 2)?;
         w.write_bits(u64::from(self.mmsi.raw()), 30)?;
-        w.write_bits(0, 8)?; // regional reserved
+        w.write_bits(u64::from(self.reserved), 8)?;
         w.write_bits(u64::from(self.sog.raw()), 10)?;
         w.write_bool(self.position_accuracy)?;
         w.write_signed(i64::from(self.longitude.raw()), 28)?;
@@ -113,7 +121,7 @@ impl PositionReportClassBExtended {
         w.write_bits(u64::from(self.cog.raw()), 12)?;
         w.write_bits(u64::from(self.heading.raw()), 9)?;
         w.write_bits(u64::from(self.timestamp.to_raw()), 6)?;
-        w.write_bits(0, 4)?; // regional reserved
+        w.write_bits(u64::from(self.regional_reserved), 4)?;
         w.write_sixbit_ascii(self.name.as_str(), 20)?;
         w.write_bits(u64::from(self.ship_type), 8)?;
         w.write_bits(u64::from(self.dimension_to_bow), 9)?;
@@ -138,6 +146,7 @@ mod tests {
         PositionReportClassBExtended {
             repeat_indicator: 0,
             mmsi: Mmsi::from_raw(338_123_456),
+            reserved: 0x7A,
             sog: Sog::from_raw(35),
             position_accuracy: true,
             longitude: Longitude::from_raw(-44_100_000),
@@ -145,6 +154,7 @@ mod tests {
             cog: Cog::from_raw(1234),
             heading: Heading::from_raw(88),
             timestamp: Timestamp::from_raw(42),
+            regional_reserved: 0x9,
             name: test_padded("SAILING VESSEL"),
             ship_type: 36,
             dimension_to_bow: 12,

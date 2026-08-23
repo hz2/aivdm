@@ -33,9 +33,16 @@ pub struct SarAircraftPositionReport {
     pub timestamp: Timestamp,
     /// Altitude sensor type (`false` = GNSS, `true` = barometric).
     pub barometric_altitude: bool,
+    /// Raw 7-bit reserved-for-regional-applications field (real-world
+    /// transponders may put non-zero data here despite it being nominally
+    /// reserved, as seen with type 21's `regional_reserved` byte).
+    pub regional_reserved: u8,
     /// Whether the data terminal equipment is *not* ready (raw wire polarity:
     /// `true` = not available/not ready).
     pub dte_not_ready: bool,
+    /// Raw 3-bit spare field, nominally unused but round-tripped rather than
+    /// discarded.
+    pub spare: u8,
     /// Whether the station is assigned by a message 16 or 22.
     pub assigned: bool,
     /// Whether the RAIM (Receiver Autonomous Integrity Monitoring) flag is set.
@@ -56,9 +63,9 @@ impl SarAircraftPositionReport {
         let cog = Cog::from_raw(r.read_u16(12)?);
         let timestamp = Timestamp::from_raw(r.read_u8(6)?);
         let barometric_altitude = r.read_bool()?;
-        r.skip(7)?; // spare
+        let regional_reserved = r.read_u8(7)?;
         let dte_not_ready = r.read_bool()?;
-        r.skip(3)?; // spare
+        let spare = r.read_u8(3)?;
         let assigned = r.read_bool()?;
         let raim = r.read_bool()?;
         let radio_status = r.read_u32(20)?;
@@ -74,7 +81,9 @@ impl SarAircraftPositionReport {
             cog,
             timestamp,
             barometric_altitude,
+            regional_reserved,
             dte_not_ready,
+            spare,
             assigned,
             raim,
             radio_status,
@@ -93,9 +102,9 @@ impl SarAircraftPositionReport {
         w.write_bits(u64::from(self.cog.raw()), 12)?;
         w.write_bits(u64::from(self.timestamp.to_raw()), 6)?;
         w.write_bool(self.barometric_altitude)?;
-        w.write_bits(0, 7)?; // spare
+        w.write_bits(u64::from(self.regional_reserved), 7)?;
         w.write_bool(self.dte_not_ready)?;
-        w.write_bits(0, 3)?; // spare
+        w.write_bits(u64::from(self.spare), 3)?;
         w.write_bool(self.assigned)?;
         w.write_bool(self.raim)?;
         w.write_bits(u64::from(self.radio_status), 20)?;
@@ -119,7 +128,9 @@ mod tests {
             cog: Cog::from_raw(900),
             timestamp: Timestamp::from_raw(12),
             barometric_altitude: true,
+            regional_reserved: 0x2A,
             dte_not_ready: true,
+            spare: 0x5,
             assigned: false,
             raim: true,
             radio_status: 654_321,
