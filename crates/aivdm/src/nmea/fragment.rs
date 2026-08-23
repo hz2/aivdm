@@ -24,6 +24,10 @@ pub struct CompleteMessage<'a> {
 ///
 /// Single-fragment sentences (`fragment_count == 1`, the common case) do not
 /// need this: read `Sentence::payload` directly instead.
+///
+/// Most callers reading a live/mixed feed want
+/// [`LineDecoder`](crate::LineDecoder) instead, which wraps this type and
+/// dispatches between the single- and multi-fragment paths internally.
 #[derive(Debug)]
 pub struct FragmentAssembler<const N: usize> {
     buf: [u8; N],

@@ -37,9 +37,8 @@ pub use nmea::{Channel, CompleteMessage, FragmentAssembler, Sentence};
 /// This only handles single-fragment sentences (`fragment_count == 1`),
 /// which cover the large majority of AIS traffic. For a sentence that is one
 /// fragment of a multi-part message, this returns
-/// [`AisError::IncompleteFragment`]; parse the line with [`Sentence::parse`]
-/// instead and feed the fragments through a [`nmea::FragmentAssembler`]
-/// yourself, then call [`decode_payload`] on the reassembled payload.
+/// [`AisError::IncompleteFragment`]; use [`LineDecoder`] instead if your feed
+/// mixes single- and multi-fragment sentences.
 ///
 /// # Errors
 /// Returns an [`AisError`] if the line fails NMEA parsing, is one fragment
@@ -125,6 +124,64 @@ pub fn encode_line<'a>(
     Ok(sentence.format(buf)?)
 }
 
+/// A stateful decoder that handles both single- and multi-fragment
+/// `!AIVDM`/`!AIVDO` sentences, so callers reading a live/mixed feed don't
+/// need to hand-roll the parse/assemble/decode state machine themselves.
+///
+/// `N` is the byte capacity of the internal reassembly buffer, exactly as
+/// with [`FragmentAssembler`]; pick it large enough for the biggest
+/// multi-fragment message your feed carries.
+#[derive(Debug)]
+pub struct LineDecoder<const N: usize> {
+    assembler: FragmentAssembler<N>,
+}
+
+impl<const N: usize> Default for LineDecoder<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const N: usize> LineDecoder<N> {
+    /// Builds an empty decoder.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            assembler: FragmentAssembler::new(),
+        }
+    }
+
+    /// Feeds one NMEA line into the decoder.
+    ///
+    /// Returns `Ok(Some(_))` when `line` completes a message (immediately,
+    /// for a single-fragment sentence, or once the last fragment of a
+    /// multi-part message arrives), `Ok(None)` while more fragments are
+    /// still expected, and `Err(_)` if the line fails to parse or its
+    /// fragment sequencing is invalid. An invalid fragment resets the
+    /// in-progress reassembly so the next fragment-1 sentence resynchronizes
+    /// cleanly.
+    ///
+    /// # Errors
+    /// Returns an [`AisError`] if the line fails NMEA parsing, its fragment
+    /// sequencing is invalid, or its payload fails to decode as a known
+    /// message type.
+    pub fn feed(&mut self, line: &str) -> Result<Option<AisMessage>, AisError> {
+        let sentence = Sentence::parse(line)?;
+        if sentence.fragment_count == 1 {
+            return decode_payload(sentence.payload, sentence.fill_bits).map(Some);
+        }
+
+        match self.assembler.push(&sentence) {
+            Ok(Some(complete)) => decode_payload(complete.armored, complete.fill_bits).map(Some),
+            Ok(None) => Ok(None),
+            Err(e) => {
+                self.assembler.reset();
+                Err(AisError::from(e))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,5 +260,53 @@ mod tests {
         let reparsed = Sentence::parse(core::str::from_utf8(encoded).unwrap()).unwrap();
         assert!(reparsed.is_own_ship);
         assert_eq!(reparsed.channel, Channel::A);
+    }
+
+    #[test]
+    fn line_decoder_decodes_single_fragment_immediately() {
+        let mut decoder = LineDecoder::<64>::new();
+        let msg = decoder
+            .feed("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C")
+            .unwrap()
+            .unwrap();
+        assert_eq!(msg.mmsi().raw(), 366_053_209);
+    }
+
+    #[test]
+    fn line_decoder_reassembles_multi_fragment_sentences() {
+        let mut decoder = LineDecoder::<64>::new();
+        assert_eq!(
+            decoder.feed("!AIVDM,2,1,7,B,15M67FC000,0*6C").unwrap(),
+            None
+        );
+        let msg = decoder
+            .feed("!AIVDM,2,2,7,B,0G?ufbE`FepT@3n00Sa,0*26")
+            .unwrap()
+            .unwrap();
+        assert_eq!(msg.mmsi().raw(), 366_053_209);
+    }
+
+    #[test]
+    fn line_decoder_resyncs_after_an_invalid_fragment() {
+        let mut decoder = LineDecoder::<64>::new();
+        // second fragment arrives with no first fragment in progress
+        let err = decoder
+            .feed("!AIVDM,2,2,7,B,0G?ufbE`FepT@3n00Sa,0*26")
+            .unwrap_err();
+        assert_eq!(
+            err,
+            AisError::Fragment(crate::error::FragmentError::OutOfOrder)
+        );
+
+        // a fresh sequence starting at fragment 1 still works afterwards
+        assert_eq!(
+            decoder.feed("!AIVDM,2,1,7,B,15M67FC000,0*6C").unwrap(),
+            None
+        );
+        let msg = decoder
+            .feed("!AIVDM,2,2,7,B,0G?ufbE`FepT@3n00Sa,0*26")
+            .unwrap()
+            .unwrap();
+        assert_eq!(msg.mmsi().raw(), 366_053_209);
     }
 }
