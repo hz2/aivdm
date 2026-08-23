@@ -65,7 +65,7 @@
           inherit src;
           strictDeps = true;
           pname = "aivdm-workspace";
-          version = "0.2.0";
+          version = "0.2.1";
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;

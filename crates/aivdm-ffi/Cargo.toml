@@ -20,7 +20,7 @@ name = "aivdm_ffi"
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-aivdm = { path = "../aivdm", version = "0.2.0" }
+aivdm = { path = "../aivdm", version = "0.2.1" }
 
 # Metadata consumed by `cargo capi` (https://github.com/lu-zero/cargo-c) for
 # consumers who want a polished, pkg-config-discoverable C library (headers

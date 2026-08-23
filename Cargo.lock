@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "aivdm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "criterion",
  "defmt 0.3.100",
@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "aivdm-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aivdm",
  "anyhow",
@@ -33,7 +33,7 @@ dependencies = [
 
 [[package]]
 name = "aivdm-ffi"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aivdm",
 ]
