@@ -50,6 +50,8 @@ pub enum NmeaError {
     InvalidFillBits,
     /// The armored payload contained a byte outside the six-bit ASCII alphabet.
     InvalidArmorChar,
+    /// The output buffer has no room for the formatted sentence.
+    BufferTooSmall,
 }
 
 impl fmt::Display for NmeaError {
@@ -66,6 +68,7 @@ impl fmt::Display for NmeaError {
             Self::FieldCountMismatch => write!(f, "unexpected number of comma-delimited fields"),
             Self::InvalidFillBits => write!(f, "invalid fill-bits field"),
             Self::InvalidArmorChar => write!(f, "invalid six-bit armor character"),
+            Self::BufferTooSmall => write!(f, "output buffer is too small"),
         }
     }
 }

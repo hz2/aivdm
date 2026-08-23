@@ -79,6 +79,52 @@ pub fn encode_payload<'a>(
     Ok(writer.finish()?)
 }
 
+/// The largest armored payload [`encode_line`] will encode a message into.
+/// Generous enough for every message type that realistically fits in a
+/// single NMEA sentence (see [`encode_line`]'s docs); comfortably smaller
+/// than the stack budget of even small embedded targets.
+const MAX_SINGLE_SENTENCE_PAYLOAD_BYTES: usize = 128;
+
+/// Encodes a typed AIS message into a single, complete `!AIVDM`/`!AIVDO`
+/// NMEA line on the given `channel`, writing into `buf` and returning the
+/// written slice. Set `is_own_ship` to emit `!AIVDO` (a simulated/own-ship
+/// report) rather than `!AIVDM`.
+///
+/// This only handles messages that fit in a single sentence, mirroring
+/// [`decode_line`]'s single-fragment restriction: large message types (5,
+/// 12, 22, 24, ...) that real-world transmitters split across multiple
+/// sentences are not supported by this convenience function. For those,
+/// encode the payload with [`encode_payload`], split it into chunks
+/// yourself, and format each fragment with [`Sentence::format`].
+///
+/// The returned line has no trailing line ending (e.g. `\r\n`); add your
+/// transport's convention yourself.
+///
+/// # Errors
+/// Returns an [`AisError`] if the message fails to encode, if its armored
+/// payload does not fit in a single sentence, or if `buf` is too small to
+/// hold the formatted line.
+pub fn encode_line<'a>(
+    message: &AisMessage,
+    channel: Channel,
+    is_own_ship: bool,
+    buf: &'a mut [u8],
+) -> Result<&'a [u8], AisError> {
+    let mut payload_buf = [0u8; MAX_SINGLE_SENTENCE_PAYLOAD_BYTES];
+    let (payload, fill_bits) = encode_payload(message, &mut payload_buf)?;
+
+    let sentence = Sentence {
+        is_own_ship,
+        fragment_count: 1,
+        fragment_number: 1,
+        seq_id: None,
+        channel,
+        payload,
+        fill_bits,
+    };
+    Ok(sentence.format(buf)?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +176,32 @@ mod tests {
 
         let re_decoded = decode_payload(armored, fill_bits).unwrap();
         assert_eq!(re_decoded, msg);
+    }
+
+    #[test]
+    fn encode_line_round_trips_a_real_position_report() {
+        let line = "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C";
+        let msg = decode_line(line).unwrap();
+
+        let mut buf = [0u8; 64];
+        let encoded = encode_line(&msg, Channel::B, false, &mut buf).unwrap();
+        assert_eq!(encoded, line.as_bytes());
+
+        let re_decoded = decode_line(core::str::from_utf8(encoded).unwrap()).unwrap();
+        assert_eq!(re_decoded, msg);
+    }
+
+    #[test]
+    fn encode_line_emits_aivdo_for_own_ship() {
+        let line = "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C";
+        let msg = decode_line(line).unwrap();
+
+        let mut buf = [0u8; 64];
+        let encoded = encode_line(&msg, Channel::A, true, &mut buf).unwrap();
+        assert!(encoded.starts_with(b"!AIVDO,"));
+
+        let reparsed = Sentence::parse(core::str::from_utf8(encoded).unwrap()).unwrap();
+        assert!(reparsed.is_own_ship);
+        assert_eq!(reparsed.channel, Channel::A);
     }
 }
