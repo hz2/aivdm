@@ -100,6 +100,17 @@ fn type8_binary_broadcast_message() {
 #[test]
 fn type9_sar_aircraft_position_report() {
     let msg = decode("!AIVDM,1,1,,B,9oVAuAI5;rRRv2OqTi?1uoP?=a@1,0*74,raishub,1342572824");
+
+    // the generic, message-type-agnostic AisMessage accessors should agree
+    // with the type-specific fields checked below, against real data.
+    assert_eq!(msg.mmsi().raw(), 509_902_149);
+    assert_eq!(msg.repeat_indicator(), 3);
+    let position = msg.position().unwrap();
+    assert!((position.latitude - (-11.229_34)).abs() < 1e-6);
+    assert!((position.longitude - 35.601_198_333_333).abs() < 1e-6);
+    assert!((msg.sog_knots().unwrap() - 762.0).abs() < 1e-9);
+    assert!((msg.cog_degrees().unwrap() - 50.3).abs() < 1e-6);
+
     let AisMessage::SarAircraftPositionReport(m) = msg else {
         panic!("expected SarAircraftPositionReport")
     };

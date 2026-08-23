@@ -140,7 +140,7 @@ pub unsafe extern "C" fn aivdm_message_type(msg: *const AivdmMessage) -> u8 {
 pub unsafe extern "C" fn aivdm_message_repeat_indicator(msg: *const AivdmMessage) -> u8 {
     // SAFETY: caller guarantees `msg` is a valid handle or NULL.
     match unsafe { msg.as_ref() } {
-        Some(msg) => repeat_indicator_of(&msg.0),
+        Some(msg) => msg.0.repeat_indicator(),
         None => 0,
     }
 }
@@ -153,7 +153,7 @@ pub unsafe extern "C" fn aivdm_message_repeat_indicator(msg: *const AivdmMessage
 pub unsafe extern "C" fn aivdm_message_mmsi(msg: *const AivdmMessage) -> u32 {
     // SAFETY: caller guarantees `msg` is a valid handle or NULL.
     match unsafe { msg.as_ref() } {
-        Some(msg) => mmsi_of(&msg.0).unwrap_or(0),
+        Some(msg) => msg.0.mmsi().raw(),
         None => 0,
     }
 }
@@ -178,13 +178,13 @@ pub unsafe extern "C" fn aivdm_message_position(
     let Some(msg) = (unsafe { msg.as_ref() }) else {
         return false;
     };
-    let Some((lat, lon)) = position_of(&msg.0) else {
+    let Some(position) = msg.0.position() else {
         return false;
     };
     // SAFETY: caller guarantees `out_lat`/`out_lon` are valid write targets.
     unsafe {
-        out_lat.write(lat);
-        out_lon.write(lon);
+        out_lat.write(position.latitude);
+        out_lon.write(position.longitude);
     }
     true
 }
@@ -206,7 +206,7 @@ pub unsafe extern "C" fn aivdm_message_sog_knots(
     let Some(msg) = (unsafe { msg.as_ref() }) else {
         return false;
     };
-    let Some(sog) = sog_knots_of(&msg.0) else {
+    let Some(sog) = msg.0.sog_knots() else {
         return false;
     };
     // SAFETY: caller guarantees `out_sog` is a valid write target.
@@ -233,7 +233,7 @@ pub unsafe extern "C" fn aivdm_message_cog_degrees(
     let Some(msg) = (unsafe { msg.as_ref() }) else {
         return false;
     };
-    let Some(cog) = cog_degrees_of(&msg.0) else {
+    let Some(cog) = msg.0.cog_degrees() else {
         return false;
     };
     // SAFETY: caller guarantees `out_cog` is a valid write target.
@@ -260,7 +260,7 @@ pub unsafe extern "C" fn aivdm_message_heading_degrees(
     let Some(msg) = (unsafe { msg.as_ref() }) else {
         return false;
     };
-    let Some(heading) = heading_degrees_of(&msg.0) else {
+    let Some(heading) = msg.0.heading_degrees() else {
         return false;
     };
     // SAFETY: caller guarantees `out_heading` is a valid write target.
@@ -288,9 +288,10 @@ pub unsafe extern "C" fn aivdm_message_navigation_status(
     let Some(msg) = (unsafe { msg.as_ref() }) else {
         return false;
     };
-    let Some(status) = navigation_status_of(&msg.0) else {
+    let Some(status) = msg.0.navigation_status() else {
         return false;
     };
+    let status = status.to_raw();
     // SAFETY: caller guarantees `out_status` is a valid write target.
     unsafe {
         out_status.write(status);
@@ -306,131 +307,7 @@ pub extern "C" fn aivdm_version() -> *const c_char {
     VERSION.as_ptr().cast::<c_char>()
 }
 
-fn repeat_indicator_of(msg: &AisMessage) -> u8 {
-    match msg {
-        AisMessage::PositionReportClassA(m) => m.repeat_indicator,
-        AisMessage::StaticVoyageData(m) => m.repeat_indicator,
-        AisMessage::PositionReportClassB(m) => m.repeat_indicator,
-        AisMessage::PositionReportClassBExtended(m) => m.repeat_indicator,
-        AisMessage::AidToNavigationReport(m) => m.repeat_indicator,
-        AisMessage::BaseStationReport(m) => m.repeat_indicator,
-        AisMessage::SarAircraftPositionReport(m) => m.repeat_indicator,
-        AisMessage::LongRangeBroadcast(m) => m.repeat_indicator,
-        AisMessage::BinaryAddressedMessage(m) => m.repeat_indicator,
-        AisMessage::Acknowledge(m) => m.repeat_indicator,
-        AisMessage::BinaryBroadcastMessage(m) => m.repeat_indicator,
-        AisMessage::SafetyRelatedAddressed(m) => m.repeat_indicator,
-        AisMessage::SafetyRelatedBroadcast(m) => m.repeat_indicator,
-        AisMessage::SingleSlotBinaryMessage(m) => m.repeat_indicator,
-        AisMessage::MultiSlotBinaryMessage(m) => m.repeat_indicator,
-        AisMessage::UtcDateInquiry(m) => m.repeat_indicator,
-        AisMessage::Interrogation(m) => m.repeat_indicator,
-        AisMessage::AssignmentModeCommand(m) => m.repeat_indicator,
-        AisMessage::DgnssBroadcastMessage(m) => m.repeat_indicator,
-        AisMessage::DataLinkManagement(m) => m.repeat_indicator,
-        AisMessage::ChannelManagement(m) => m.repeat_indicator,
-        AisMessage::GroupAssignmentCommand(m) => m.repeat_indicator,
-        // StaticDataReport's repeat indicator isn't modeled separately (see
-        // aivdm's StaticDataReport decoder); future variants also fall here.
-        _ => 0,
-    }
-}
-
-fn mmsi_of(msg: &AisMessage) -> Option<u32> {
-    let mmsi = match msg {
-        AisMessage::PositionReportClassA(m) => m.mmsi,
-        AisMessage::StaticVoyageData(m) => m.mmsi,
-        AisMessage::PositionReportClassB(m) => m.mmsi,
-        AisMessage::PositionReportClassBExtended(m) => m.mmsi,
-        AisMessage::AidToNavigationReport(m) => m.mmsi,
-        AisMessage::BaseStationReport(m) => m.mmsi,
-        AisMessage::SarAircraftPositionReport(m) => m.mmsi,
-        AisMessage::LongRangeBroadcast(m) => m.mmsi,
-        AisMessage::BinaryAddressedMessage(m) => m.mmsi,
-        AisMessage::Acknowledge(m) => m.mmsi,
-        AisMessage::BinaryBroadcastMessage(m) => m.mmsi,
-        AisMessage::SafetyRelatedAddressed(m) => m.mmsi,
-        AisMessage::SafetyRelatedBroadcast(m) => m.mmsi,
-        AisMessage::SingleSlotBinaryMessage(m) => m.mmsi,
-        AisMessage::MultiSlotBinaryMessage(m) => m.mmsi,
-        AisMessage::UtcDateInquiry(m) => m.mmsi,
-        AisMessage::Interrogation(m) => m.mmsi,
-        AisMessage::AssignmentModeCommand(m) => m.mmsi,
-        AisMessage::DgnssBroadcastMessage(m) => m.mmsi,
-        AisMessage::DataLinkManagement(m) => m.mmsi,
-        AisMessage::ChannelManagement(m) => m.mmsi,
-        AisMessage::GroupAssignmentCommand(m) => m.mmsi,
-        AisMessage::StaticDataReport(aivdm::message::StaticDataReport::A(m)) => m.mmsi,
-        AisMessage::StaticDataReport(aivdm::message::StaticDataReport::B(m)) => m.mmsi,
-        _ => return None,
-    };
-    Some(mmsi.raw())
-}
-
-fn position_of(msg: &AisMessage) -> Option<(f64, f64)> {
-    match msg {
-        AisMessage::PositionReportClassA(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::PositionReportClassB(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::PositionReportClassBExtended(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::AidToNavigationReport(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::BaseStationReport(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::SarAircraftPositionReport(m) => {
-            Some((m.latitude.as_degrees()?, m.longitude.as_degrees()?))
-        }
-        AisMessage::LongRangeBroadcast(m) => Some((m.latitude_degrees()?, m.longitude_degrees()?)),
-        _ => None,
-    }
-}
-
-fn sog_knots_of(msg: &AisMessage) -> Option<f64> {
-    match msg {
-        AisMessage::PositionReportClassA(m) => m.sog.knots(),
-        AisMessage::PositionReportClassB(m) => m.sog.knots(),
-        AisMessage::PositionReportClassBExtended(m) => m.sog.knots(),
-        AisMessage::SarAircraftPositionReport(m) => {
-            (m.sog_knots != 1023).then(|| f64::from(m.sog_knots))
-        }
-        AisMessage::LongRangeBroadcast(m) => (m.sog_knots != 63).then(|| f64::from(m.sog_knots)),
-        _ => None,
-    }
-}
-
-fn cog_degrees_of(msg: &AisMessage) -> Option<f64> {
-    match msg {
-        AisMessage::PositionReportClassA(m) => m.cog.degrees(),
-        AisMessage::PositionReportClassB(m) => m.cog.degrees(),
-        AisMessage::PositionReportClassBExtended(m) => m.cog.degrees(),
-        AisMessage::SarAircraftPositionReport(m) => m.cog.degrees(),
-        AisMessage::LongRangeBroadcast(m) => {
-            (m.cog_degrees != 511).then(|| f64::from(m.cog_degrees))
-        }
-        _ => None,
-    }
-}
-
-fn heading_degrees_of(msg: &AisMessage) -> Option<u16> {
-    match msg {
-        AisMessage::PositionReportClassA(m) => m.heading.degrees(),
-        AisMessage::PositionReportClassB(m) => m.heading.degrees(),
-        AisMessage::PositionReportClassBExtended(m) => m.heading.degrees(),
-        _ => None,
-    }
-}
-
-fn navigation_status_of(msg: &AisMessage) -> Option<u8> {
-    match msg {
-        AisMessage::PositionReportClassA(m) => Some(m.navigation_status.to_raw()),
-        AisMessage::LongRangeBroadcast(m) => Some(m.navigation_status.to_raw()),
-        _ => None,
-    }
-}
+// repeat_indicator/mmsi/position/sog_knots/cog_degrees/heading_degrees/
+// navigation_status are all provided directly by `AisMessage` in the core
+// crate (see `aivdm::message::AisMessage`) and called via
+// `msg.0.<method>()` above, rather than duplicated here.

@@ -17,6 +17,7 @@ pub use types::{
 
 use crate::bits::{BitReader, BitWriter};
 use crate::error::{BitError, MessageError};
+use crate::message::common::{Mmsi, NavigationStatus, Position};
 
 /// A decoded ITU-R M.1371 AIS message.
 ///
@@ -168,6 +169,154 @@ impl AisMessage {
             Self::DataLinkManagement(_) => 20,
             Self::ChannelManagement(_) => 22,
             Self::GroupAssignmentCommand(_) => 23,
+        }
+    }
+
+    /// How many times a repeater has relayed this message (0-3).
+    ///
+    /// TODO(completeness): [`StaticDataReport`]'s decoder currently discards
+    /// this field (`r.skip(2)` in its wire format) instead of storing it, so
+    /// this returns 0 for that variant regardless of the real value. Add a
+    /// `repeat_indicator` field to `StaticDataReportPartA`/`PartB` to close
+    /// this gap the same way type 21's `regional_reserved` was added.
+    #[must_use]
+    pub const fn repeat_indicator(&self) -> u8 {
+        match self {
+            Self::PositionReportClassA(m) => m.repeat_indicator,
+            Self::StaticVoyageData(m) => m.repeat_indicator,
+            Self::PositionReportClassB(m) => m.repeat_indicator,
+            Self::PositionReportClassBExtended(m) => m.repeat_indicator,
+            Self::AidToNavigationReport(m) => m.repeat_indicator,
+            Self::BaseStationReport(m) => m.repeat_indicator,
+            Self::SarAircraftPositionReport(m) => m.repeat_indicator,
+            Self::LongRangeBroadcast(m) => m.repeat_indicator,
+            Self::BinaryAddressedMessage(m) => m.repeat_indicator,
+            Self::Acknowledge(m) => m.repeat_indicator,
+            Self::BinaryBroadcastMessage(m) => m.repeat_indicator,
+            Self::SafetyRelatedAddressed(m) => m.repeat_indicator,
+            Self::SafetyRelatedBroadcast(m) => m.repeat_indicator,
+            Self::SingleSlotBinaryMessage(m) => m.repeat_indicator,
+            Self::MultiSlotBinaryMessage(m) => m.repeat_indicator,
+            Self::UtcDateInquiry(m) => m.repeat_indicator,
+            Self::Interrogation(m) => m.repeat_indicator,
+            Self::AssignmentModeCommand(m) => m.repeat_indicator,
+            Self::DgnssBroadcastMessage(m) => m.repeat_indicator,
+            Self::DataLinkManagement(m) => m.repeat_indicator,
+            Self::ChannelManagement(m) => m.repeat_indicator,
+            Self::GroupAssignmentCommand(m) => m.repeat_indicator,
+            Self::StaticDataReport(_) => 0,
+        }
+    }
+
+    /// The source station MMSI, for the message types that carry one (which
+    /// is most of them).
+    ///
+    /// Every message type currently defined carries an MMSI, so this match
+    /// is exhaustive today; adding a future variant without an MMSI field
+    /// will fail to compile here rather than silently returning a wrong answer.
+    #[must_use]
+    pub fn mmsi(&self) -> Mmsi {
+        match self {
+            Self::PositionReportClassA(m) => m.mmsi,
+            Self::StaticVoyageData(m) => m.mmsi,
+            Self::PositionReportClassB(m) => m.mmsi,
+            Self::PositionReportClassBExtended(m) => m.mmsi,
+            Self::AidToNavigationReport(m) => m.mmsi,
+            Self::BaseStationReport(m) => m.mmsi,
+            Self::SarAircraftPositionReport(m) => m.mmsi,
+            Self::LongRangeBroadcast(m) => m.mmsi,
+            Self::BinaryAddressedMessage(m) => m.mmsi,
+            Self::Acknowledge(m) => m.mmsi,
+            Self::BinaryBroadcastMessage(m) => m.mmsi,
+            Self::SafetyRelatedAddressed(m) => m.mmsi,
+            Self::SafetyRelatedBroadcast(m) => m.mmsi,
+            Self::SingleSlotBinaryMessage(m) => m.mmsi,
+            Self::MultiSlotBinaryMessage(m) => m.mmsi,
+            Self::UtcDateInquiry(m) => m.mmsi,
+            Self::Interrogation(m) => m.mmsi,
+            Self::AssignmentModeCommand(m) => m.mmsi,
+            Self::DgnssBroadcastMessage(m) => m.mmsi,
+            Self::DataLinkManagement(m) => m.mmsi,
+            Self::ChannelManagement(m) => m.mmsi,
+            Self::GroupAssignmentCommand(m) => m.mmsi,
+            Self::StaticDataReport(StaticDataReport::A(m)) => m.mmsi,
+            Self::StaticDataReport(StaticDataReport::B(m)) => m.mmsi,
+        }
+    }
+
+    /// The position, for the message types that carry one and have it
+    /// marked available.
+    #[must_use]
+    pub fn position(&self) -> Option<Position> {
+        let (latitude, longitude) = match self {
+            Self::PositionReportClassA(m) => (m.latitude.as_degrees()?, m.longitude.as_degrees()?),
+            Self::PositionReportClassB(m) => (m.latitude.as_degrees()?, m.longitude.as_degrees()?),
+            Self::PositionReportClassBExtended(m) => {
+                (m.latitude.as_degrees()?, m.longitude.as_degrees()?)
+            }
+            Self::AidToNavigationReport(m) => (m.latitude.as_degrees()?, m.longitude.as_degrees()?),
+            Self::BaseStationReport(m) => (m.latitude.as_degrees()?, m.longitude.as_degrees()?),
+            Self::SarAircraftPositionReport(m) => {
+                (m.latitude.as_degrees()?, m.longitude.as_degrees()?)
+            }
+            Self::LongRangeBroadcast(m) => (m.latitude_degrees()?, m.longitude_degrees()?),
+            _ => return None,
+        };
+        Some(Position {
+            latitude,
+            longitude,
+        })
+    }
+
+    /// Speed over ground, in knots, for the message types that carry one and
+    /// have it marked available.
+    #[must_use]
+    pub fn sog_knots(&self) -> Option<f64> {
+        match self {
+            Self::PositionReportClassA(m) => m.sog.knots(),
+            Self::PositionReportClassB(m) => m.sog.knots(),
+            Self::PositionReportClassBExtended(m) => m.sog.knots(),
+            Self::SarAircraftPositionReport(m) => {
+                (m.sog_knots != 1023).then(|| f64::from(m.sog_knots))
+            }
+            Self::LongRangeBroadcast(m) => (m.sog_knots != 63).then(|| f64::from(m.sog_knots)),
+            _ => None,
+        }
+    }
+
+    /// Course over ground, in degrees, for the message types that carry one
+    /// and have it marked available.
+    #[must_use]
+    pub fn cog_degrees(&self) -> Option<f64> {
+        match self {
+            Self::PositionReportClassA(m) => m.cog.degrees(),
+            Self::PositionReportClassB(m) => m.cog.degrees(),
+            Self::PositionReportClassBExtended(m) => m.cog.degrees(),
+            Self::SarAircraftPositionReport(m) => m.cog.degrees(),
+            Self::LongRangeBroadcast(m) => (m.cog_degrees != 511).then(|| f64::from(m.cog_degrees)),
+            _ => None,
+        }
+    }
+
+    /// True heading, in whole degrees (0-359), for the message types that
+    /// carry one and have it marked available.
+    #[must_use]
+    pub fn heading_degrees(&self) -> Option<u16> {
+        match self {
+            Self::PositionReportClassA(m) => m.heading.degrees(),
+            Self::PositionReportClassB(m) => m.heading.degrees(),
+            Self::PositionReportClassBExtended(m) => m.heading.degrees(),
+            _ => None,
+        }
+    }
+
+    /// Navigational status, for the message types that carry one.
+    #[must_use]
+    pub fn navigation_status(&self) -> Option<NavigationStatus> {
+        match self {
+            Self::PositionReportClassA(m) => Some(m.navigation_status),
+            Self::LongRangeBroadcast(m) => Some(m.navigation_status),
+            _ => None,
         }
     }
 

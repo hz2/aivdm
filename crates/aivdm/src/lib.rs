@@ -99,6 +99,19 @@ mod tests {
     }
 
     #[test]
+    fn common_accessors_work_directly_on_ais_message() {
+        let msg = decode_line("!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C").unwrap();
+        assert_eq!(msg.mmsi().raw(), 366_053_209);
+        assert_eq!(
+            msg.navigation_status(),
+            Some(crate::message::common::NavigationStatus::RestrictedManoeuvrability)
+        );
+        let position = msg.position().unwrap();
+        assert!((position.latitude - 37.802_118_333).abs() < 1e-6);
+        assert!((position.longitude - (-122.341_618_333)).abs() < 1e-6);
+    }
+
+    #[test]
     fn multi_fragment_sentence_reports_incomplete() {
         let err = decode_line("!AIVDM,2,1,7,B,15M67FC000,0*6C").unwrap_err();
         assert_eq!(err, AisError::IncompleteFragment);

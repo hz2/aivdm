@@ -167,6 +167,23 @@ impl Latitude {
     }
 }
 
+/// A decoded WGS84 position, in decimal degrees.
+///
+/// [`AisMessage::position`](crate::AisMessage::position) normalizes several
+/// message types' differently-scaled position fields (some use
+/// [`Latitude`]/[`Longitude`] directly; [`LongRangeBroadcast`]'s
+/// reduced-precision fields use their own scaling) down to this one
+/// convenient representation.
+///
+/// [`LongRangeBroadcast`]: crate::message::LongRangeBroadcast
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Position {
+    /// Latitude, in decimal degrees.
+    pub latitude: f64,
+    /// Longitude, in decimal degrees.
+    pub longitude: f64,
+}
+
 /// Speed over ground, in units of 0.1 knot (10-bit field).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sog(u16);
