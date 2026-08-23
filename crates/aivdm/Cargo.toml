@@ -36,7 +36,7 @@ uom = { version = "0.38", optional = true, default-features = false, features = 
 
 [dev-dependencies]
 proptest = "1"
-criterion = "0.7"
+criterion = { version = "0.7", features = ["html_reports"] }
 
 [[bench]]
 name = "codec"
