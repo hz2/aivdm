@@ -131,6 +131,11 @@ impl Longitude {
     }
 
     /// The longitude in decimal degrees, or `None` if not available.
+    ///
+    /// Returns `f64` rather than a whole-number type because the wire field
+    /// genuinely carries fractional precision (1/10000-minute units); this
+    /// differs from [`Heading::degrees`], which returns whole degrees
+    /// because that is all the wire format has to offer.
     #[must_use]
     pub fn as_degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 600_000.0)
@@ -169,6 +174,11 @@ impl Latitude {
     }
 
     /// The latitude in decimal degrees, or `None` if not available.
+    ///
+    /// Returns `f64` rather than a whole-number type because the wire field
+    /// genuinely carries fractional precision (1/10000-minute units); this
+    /// differs from [`Heading::degrees`], which returns whole degrees
+    /// because that is all the wire format has to offer.
     #[must_use]
     pub fn as_degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 600_000.0)
@@ -270,6 +280,11 @@ impl Cog {
     }
 
     /// The course in decimal degrees, or `None` if not available.
+    ///
+    /// Returns `f64` rather than a whole-number type because the wire field
+    /// genuinely carries fractional precision (0.1-degree units); this
+    /// differs from [`Heading::degrees`], which returns whole degrees
+    /// because that is all the wire format has to offer.
     #[must_use]
     pub fn degrees(self) -> Option<f64> {
         self.is_available().then(|| f64::from(self.0) / 10.0)
@@ -311,6 +326,12 @@ impl Heading {
     }
 
     /// The heading in whole degrees, or `None` if not available.
+    ///
+    /// Returns `u16` rather than `f64`, unlike [`Cog::degrees`] and
+    /// [`Longitude::as_degrees`]/[`Latitude::as_degrees`]: those wire fields
+    /// genuinely carry fractional precision, but this one is a 9-bit
+    /// whole-degree value with no fractional component to represent, so an
+    /// `f64` return would only imply false precision.
     #[must_use]
     pub const fn degrees(self) -> Option<u16> {
         if self.is_available() {
