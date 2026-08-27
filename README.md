@@ -144,6 +144,30 @@ Without Nix, a standard `cargo build` / `cargo test` from the workspace root
 also works with a recent stable Rust toolchain (edition 2024, MSRV tracked
 in `Cargo.toml`).
 
+## Formal verification
+
+The bit-level codec (`src/bits/`) is proven, not just tested, using
+[Kani](https://github.com/model-checking/kani), a bounded model checker for
+Rust. Where the test suite samples inputs, these harnesses (gated behind
+`#[cfg(kani)]`, so they add nothing to normal builds) prove properties over
+*every* input in a bounded space:
+
+- `BitReader`/`BitWriter` never panic, for any input, including malformed
+  `nbits`/buffer combinations a caller isn't supposed to pass.
+- Writing a value and reading it back recovers the original value exactly,
+  for every bit width `1..=64`, including two's-complement sign extension.
+- The six-bit NMEA armor alphabet round-trips exactly over all 64 values.
+
+Kani requires its own toolchain download (a pinned nightly + CBMC), which
+needs network access and isn't run inside the hermetic Nix sandbox, so it's
+a manual step rather than part of `nix flake check`:
+
+```sh
+cargo install --locked kani-verifier
+cargo kani setup
+cargo kani -p aivdm
+```
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

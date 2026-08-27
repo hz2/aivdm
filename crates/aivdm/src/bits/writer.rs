@@ -139,6 +139,39 @@ impl<'a> BitWriter<'a> {
     }
 }
 
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    // write_bits/write_signed must report BufferFull or OutOfRange rather
+    // than panic, for any output buffer size (including zero) and any
+    // value/width combination. nbits is bounded (rather than a fully
+    // unconstrained u32) purely so CBMC's loop unwinding has a concrete,
+    // small bound to work with; the OutOfRange check for nbits > 64 is
+    // exercised well within that bound regardless.
+    #[kani::proof]
+    #[kani::unwind(65)]
+    fn write_bits_never_panics() {
+        let mut buf: [u8; 4] = kani::any();
+        let value: u64 = kani::any();
+        let nbits: u32 = kani::any();
+        kani::assume(nbits <= 100);
+        let mut w = BitWriter::new(&mut buf);
+        let _ = w.write_bits(value, nbits);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(65)]
+    fn write_signed_never_panics() {
+        let mut buf: [u8; 4] = kani::any();
+        let value: i64 = kani::any();
+        let nbits: u32 = kani::any();
+        kani::assume(nbits <= 100);
+        let mut w = BitWriter::new(&mut buf);
+        let _ = w.write_signed(value, nbits);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::reader::BitReader;

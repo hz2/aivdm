@@ -213,6 +213,33 @@ const fn sign_extend(raw: u64, nbits: u32) -> i64 {
     (raw << shift).cast_signed() >> shift
 }
 
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    // BitReader::new saturates fill_bits arithmetic, and get_bit's indexing
+    // is bounded by bit_len <= data.len() * 6, so no input (including an
+    // out-of-range nbits or a fill_bits the caller's doc doesn't promise) can
+    // ever panic here -- only the documented error returns.
+    #[kani::proof]
+    fn read_u64_never_panics() {
+        let data: [u8; 4] = kani::any();
+        let fill_bits: u8 = kani::any();
+        let nbits: u32 = kani::any();
+        let mut r = BitReader::new(&data, fill_bits);
+        let _ = r.read_u64(nbits);
+    }
+
+    #[kani::proof]
+    fn read_i64_never_panics() {
+        let data: [u8; 4] = kani::any();
+        let fill_bits: u8 = kani::any();
+        let nbits: u32 = kani::any();
+        let mut r = BitReader::new(&data, fill_bits);
+        let _ = r.read_i64(nbits);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

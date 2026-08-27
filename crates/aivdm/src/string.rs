@@ -109,6 +109,23 @@ pub(crate) fn test_padded<const N: usize>(s: &str) -> FixedStr<N> {
     FixedStr::from_raw(buf, N)
 }
 
+#[cfg(kani)]
+mod kani_proofs {
+    use super::*;
+
+    // smoke test: proves armor_char_to_sixbit/sixbit_to_armor_char are exact
+    // inverses over every valid six-bit value, exhaustively rather than by
+    // sampling (see the equivalent #[test] below).
+    #[kani::proof]
+    fn armor_roundtrip() {
+        let v: u8 = kani::any();
+        kani::assume(v < 64);
+        let c = sixbit_to_armor_char(v);
+        assert!(is_valid_armor_byte(c));
+        assert_eq!(armor_char_to_sixbit(c), v);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
