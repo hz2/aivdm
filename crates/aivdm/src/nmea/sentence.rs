@@ -96,6 +96,9 @@ impl<'a> Sentence<'a> {
 
         let fragment_count = parse_u8(fields.next())?;
         let fragment_number = parse_u8(fields.next())?;
+        if fragment_count == 0 || fragment_number == 0 || fragment_number > fragment_count {
+            return Err(NmeaError::InvalidFragmentFields);
+        }
 
         let seq_id_str = fields.next().ok_or(NmeaError::FieldCountMismatch)?;
         let seq_id = if seq_id_str.is_empty() {
@@ -281,6 +284,20 @@ mod tests {
             Sentence::parse(bad),
             Err(NmeaError::FieldCountMismatch)
         ));
+    }
+
+    #[test]
+    fn rejects_invalid_fragment_fields() {
+        for line in [
+            "!AIVDM,0,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5D",
+            "!AIVDM,1,0,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5D",
+            "!AIVDM,1,2,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5F",
+        ] {
+            assert!(matches!(
+                Sentence::parse(line),
+                Err(NmeaError::InvalidFragmentFields)
+            ));
+        }
     }
 
     #[test]
