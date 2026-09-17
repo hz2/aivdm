@@ -242,6 +242,7 @@ fn push_hex_byte(buf: &mut [u8], pos: &mut usize, v: u8) -> Result<(), NmeaError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     const GOOD: &str = "!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C";
 
@@ -367,5 +368,14 @@ mod tests {
         s.fill_bits = 6;
         let mut buf = [0u8; 64];
         assert_eq!(s.format(&mut buf), Err(NmeaError::InvalidFillBits));
+    }
+
+    proptest! {
+        #[test]
+        fn arbitrary_lines_never_panic(bytes in prop::collection::vec(any::<u8>(), 0..512)) {
+            if let Ok(line) = core::str::from_utf8(&bytes) {
+                let _ = Sentence::parse(line);
+            }
+        }
     }
 }
