@@ -67,6 +67,13 @@ impl<'a> Sentence<'a> {
     /// or short field list, or an invalid armor character in the payload.
     pub fn parse(line: &'a str) -> Result<Self, NmeaError> {
         let line = line.trim();
+        // scan forward to the NMEA start character so callers do not need to
+        // pre-strip any leading bytes that some receivers emit before `!`/`$`
+        let line = line
+            .bytes()
+            .position(|b| b == b'!' || b == b'$')
+            .and_then(|pos| line.get(pos..))
+            .unwrap_or(line);
         let body = line
             .strip_prefix('!')
             .or_else(|| line.strip_prefix('$'))
@@ -245,6 +252,15 @@ mod tests {
         assert_eq!(s.channel, Channel::B);
         assert_eq!(s.fill_bits, 0);
         assert_eq!(s.payload, b"15M67FC000G?ufbE`FepT@3n00Sa");
+    }
+
+    #[test]
+    fn strips_leading_bytes_before_nmea_start() {
+        // some receivers emit non-NMEA bytes before the start character
+        let with_prefix = "XYZ!AIVDM,1,1,,B,15M67FC000G?ufbE`FepT@3n00Sa,0*5C";
+        let s = Sentence::parse(with_prefix).unwrap();
+        assert_eq!(s.payload, b"15M67FC000G?ufbE`FepT@3n00Sa");
+        assert!(!s.is_own_ship);
     }
 
     #[test]
