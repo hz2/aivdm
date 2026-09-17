@@ -48,6 +48,8 @@ pub enum NmeaError {
     FieldCountMismatch,
     /// The fill-bits field was not a single digit in `0..=5`.
     InvalidFillBits,
+    /// The fragment count or fragment number was outside its valid range.
+    InvalidFragmentFields,
     /// The armored payload contained a byte outside the six-bit ASCII alphabet.
     InvalidArmorChar,
     /// The output buffer has no room for the formatted sentence.
@@ -67,6 +69,7 @@ impl fmt::Display for NmeaError {
             Self::UnsupportedFormatter => write!(f, "unsupported talker/formatter"),
             Self::FieldCountMismatch => write!(f, "unexpected number of comma-delimited fields"),
             Self::InvalidFillBits => write!(f, "invalid fill-bits field"),
+            Self::InvalidFragmentFields => write!(f, "invalid fragment count or number"),
             Self::InvalidArmorChar => write!(f, "invalid six-bit armor character"),
             Self::BufferTooSmall => write!(f, "output buffer is too small"),
         }
