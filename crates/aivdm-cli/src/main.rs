@@ -1,13 +1,13 @@
 //! Command-line demo decoder for `aivdm`.
 //!
-//! Reads `!AIVDM`/`!AIVDO` sentences from a file (or stdin) and prints the
-//! decoded message for each single-fragment line.
+//! Reads `!AIVDM`/`!AIVDO` sentences from a file (or stdin) and prints
+//! decoded messages, including reassembled multi-fragment messages.
 
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 
-use aivdm::{AisError, decode_line};
+use aivdm::LineDecoder;
 use anyhow::{Context, Result};
 use clap::Parser;
 
@@ -30,6 +30,7 @@ fn main() -> Result<()> {
 
     let mut decoded = 0u64;
     let mut skipped = 0u64;
+    let mut line_decoder = LineDecoder::<256>::new();
 
     let lines = read_lines(args.file.as_deref())?;
     for line in lines {
@@ -37,17 +38,14 @@ fn main() -> Result<()> {
         if line.trim().is_empty() {
             continue;
         }
-        match decode_line(&line) {
-            Ok(message) => {
+        match line_decoder.feed(&line) {
+            Ok(Some(message)) => {
                 decoded += 1;
                 if !args.stats {
                     print::print_message(&message);
                 }
             }
-            Err(AisError::IncompleteFragment) => {
-                // multi-fragment reassembly is not wired up in this demo CLI
-                skipped += 1;
-            }
+            Ok(None) => {}
             Err(err) => {
                 skipped += 1;
                 eprintln!("skipping line ({err}): {line}");
