@@ -1,0 +1,17 @@
+[workspace]
+# all three crates share workspace.package.version, so tag/release them as
+# one unit instead of release-plz's per-package "<pkg>-vX.Y.Z" default
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"
+
+[[package]]
+name = "aivdm"
+version_group = "aivdm-workspace"
+
+[[package]]
+name = "aivdm-cli"
+version_group = "aivdm-workspace"
+
+[[package]]
+name = "aivdm-ffi"
+version_group = "aivdm-workspace"
